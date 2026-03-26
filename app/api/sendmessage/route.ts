@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
 
   const message = {
     data: {
-      type: "message",
+      type: "SEND_SMS",
       ...data
     },
     android: {

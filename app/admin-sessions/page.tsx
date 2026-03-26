@@ -96,7 +96,7 @@ export default function AdminSessionsPage() {
               </CardBody>
             </Card>
 
-            {/* Sessions List */}
+            { }
             <div className="space-y-4">
               {sessions.map((session) => (
                 <Card

@@ -68,7 +68,6 @@ export default function FavoritesPage() {
             continue;
           }
 
-          // Only include devices marked as favorites
           if (!Boolean(deviceData.isfavorite)) {
             continue;
           }

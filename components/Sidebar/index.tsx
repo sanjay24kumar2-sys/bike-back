@@ -104,7 +104,7 @@ export default function Sidebar() {
       <div className="sticky flex flex-row items-center justify-between top-0 z-40 border-b border-(--border) bg-white px-3 py-2 lg:hidden">
         <div>
           <Link href="/all" scroll={false} className="text-lg font-bold text-(--accent-strong) hover:underline focus:outline-none">
-            APK Hunter
+            Anonymous
           </Link>
         </div>
         <nav className="flex gap-3 overflow-x-auto text-sm">

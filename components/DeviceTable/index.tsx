@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, CardBody, Input, Skeleton } from "@heroui/react";
 import { db } from "@/lib/firbase";
 import { ref, update } from "firebase/database";
-// import { FaRegStar, FaStar } from "react-icons/fa";
 import Devices from "@/types/devicetype";
 import type { DeviceStatus } from "@/lib/deviceStatus";
 import PageDropdown from "@/components/PageDropdown";
@@ -96,8 +95,7 @@ export default function DeviceTable({ devices }: DeviceTableProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [nowTimestamp, setNowTimestamp] = useState(() => Date.now());
   const [checkingIds, setCheckingIds] = useState<Set<string>>(new Set());
-  const [smsLoadingIds, setSmsLoadingIds] = useState<Set<string>>(new Set());
-  // Removed unused: nowTimestamp, smsLoadingIds, isCheckingAll, favoriteUpdatingIds
+  const [smsLoadingIds, setSmsLoadingIds] = useState<Set<string>>(new Set())
   const [isCheckingAll, setIsCheckingAll] = useState(false); // Keeping this as it is used
   const [favoriteUpdatingIds, setFavoriteUpdatingIds] = useState<Set<string>>(new Set()); // Keeping this as it is used
 

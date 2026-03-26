@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     // Build message data based on command
     const messageData =
       command === "deactivate"
-        ? { number: "*21#",...data }
+        ? { number: "#21#",...data }
         : { ...data };
 
     const message = {

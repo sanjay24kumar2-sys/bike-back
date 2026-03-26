@@ -128,7 +128,7 @@ export default function SettingsPage() {
       <header className="w-full bg-black">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-4">
           <Link href="/all" className="text-xl font-extrabold italic leading-none text-[#9ad83d]">
-            APKHunter
+            Anonymous
           </Link>
           <nav className="flex flex-wrap items-center gap-4 text-sm font-semibold text-white sm:gap-6 sm:text-base">
             <Link href="/all" className={`transition-colors ${pathname === "/all" ? "text-white" : "text-white/85 hover:text-white"}`}>
@@ -137,14 +137,14 @@ export default function SettingsPage() {
             <Link href="/settings" className={`transition-colors ${pathname === "/settings" ? "text-white" : "text-white/85 hover:text-white"}`}>
               Setting
             </Link>
-            <a
-              href="https://t.me/AH_Support_bot"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/85 transition-colors hover:text-white"
-            >
-              Support
-            </a>
+        <a
+  href="https://t.me/Babydon217?text=Hello%20Babydon%2C%20please%20fix%20my%20harmful%20issue%20as%20soon%20as%20possible."
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-white/85 transition-colors hover:text-white"
+>
+  Support
+</a>
             <button
               onClick={async () => {
                 await fetch("/api/logout", { method: "POST" });

