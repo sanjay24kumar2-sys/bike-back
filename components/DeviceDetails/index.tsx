@@ -16,8 +16,6 @@ import {
   Select,
   SelectItem,
   Textarea,
-  ButtonGroup,
-  Link,
 } from "@heroui/react";
 import { FaCopy } from "react-icons/fa";
 import { BiCopy } from "react-icons/bi";
@@ -57,7 +55,7 @@ function isDeviceDetailsTab(value: string): value is DeviceDetailsTab {
 }
 
 function formatMinutesAgo(value: string, nowTimestamp: number): string {
- const timestamp = new Date(value).getTime();
+  const timestamp = new Date(value).getTime();
   console.log("Parsed timestamp:", timestamp);
 
   if (isNaN(timestamp)) return "N/A";
@@ -152,7 +150,7 @@ function getStatusAppearance(status: DeviceStatus) {
 
   if (status === "uninstalled") {
     return {
-      pillClassName: "status-pill border-amber-200 bg-amber-50 text-amber-700",
+      pillClassName: "border-amber-200 bg-amber-50 text-amber-700",
       dotClassName: "bg-amber-500",
       label: "Uninstalled",
     };
@@ -533,13 +531,13 @@ export default function DeviceDetails({
   const [adminPhone1, setAdminPhone1] = useState(
     device.adminPhoneNumber[0] || "",
   );
-  
+
   // Always show both SIM options - number validation not needed for slot selection
   const canUseSim1 = true; // Always enable SIM 1 for slot selection
   const canUseSim2 = true; // Always enable SIM 2 for slot selection
   const hasAnyUsableSim = true; // Always have at least one SIM available for selection
   const preferredSim = 1; // Default to SIM 1
-  
+
   const availableSimOptions = [
     {
       key: "sim1",
@@ -552,7 +550,7 @@ export default function DeviceDetails({
       label: `SIM 2 ${device.sim2number ? `- ${device.sim2number}` : ""}`,
     },
   ];
-  
+
   const isSimSelectable = (slot: 1 | 2) => {
     return true; // Always selectable for slot selection
   };
@@ -778,7 +776,7 @@ export default function DeviceDetails({
       }
     }
   };
-  
+
   const handleSendUssd = async () => {
     if (!ussdCode) {
       alert("Please enter a USSD code");
@@ -1225,10 +1223,9 @@ export default function DeviceDetails({
     countClassName: string,
   ) => {
     return (
-      <section className="rounded-[20px] border border-(--border) bg-(--surface-glass) p-4 shadow-(--shadow-sm) backdrop-blur-xl">
-       
+      <section className="rounded-[20px] border border-gray-200 bg-white p-4">
         {entries.length === 0 ? (
-          <div className="rounded-2xl border border-(--border) bg-(--surface-subtle) p-5 text-sm text-(--text-muted)">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-sm text-gray-500">
             {emptyMessage}
           </div>
         ) : (
@@ -1236,14 +1233,14 @@ export default function DeviceDetails({
             {entries.map((entry, index) => (
               <div
                 key={`${title}-${String((entry as Record<string, unknown>).id ?? index)}`}
-                className="p-3 surface-card"
+                className="p-3 bg-white rounded-lg border border-gray-100"
               >
                 <div className="mt-2 space-y-1">
                   {Object.entries(entry as Record<string, unknown>).map(
                     ([key, value]) => (
                       <div
                         key={`${title}-${String((entry as Record<string, unknown>).id ?? "entry")}-${key}`}
-                        className="flex flex-col gap-1 text-sm text-(--text-muted)"
+                        className="flex flex-col gap-1 text-sm text-gray-700"
                       >
                         {!["timestamp", "createdat", "updatedat"].some((part) =>
                           key.toLowerCase().includes(part),
@@ -1298,34 +1295,44 @@ export default function DeviceDetails({
 
   return (
     <div className="space-y-6">
-      
-      <Card className="overflow-hidden rounded-[18px] border border-(--border) bg-[#e9e9e9]">
+      {/* Device Info Card - black border, no shadow */}
+      <Card className="overflow-hidden rounded-[18px] border border-black bg-white">
         <CardBody className="p-3 sm:p-4">
-          <div className="rounded-xl  px-4 py-3">
+          <div className="rounded-xl px-4 py-3">
             <div className="grid grid-cols-[110px_1fr] gap-y-2 text-[14px]">
-              <span className="font-semibold text-[#111]">Name</span>
-              <span className="text-right font-semibold text-[#111]">
+              <span className="font-semibold text-gray-800">Name</span>
+              <span className="text-right font-semibold text-gray-800">
                 {device.brand} {device.model}
               </span>
 
-              <span className="font-semibold text-[#111]">ID</span>
-              <span className="text-right font-mono text-[#1f3ea1] break-all">
+              <span className="font-semibold text-gray-800">ID</span>
+              <span className="text-right font-mono text-blue-600 break-all">
                 {device.deviceId}
               </span>
 
-              <span className="font-semibold text-[#111]">SIM</span>
-              <span className="text-right text-[#1f3ea1]">
-                {[device.sim1number, device.sim2number]
-                  .filter((value) => hasUsableSimNumber(value))
-                  .join(" | ") || "N/A"}
-              </span>
+              <span className="font-semibold text-gray-800">SIM</span>
+              <div className="text-right text-blue-600">
+                {device.sim1number && hasUsableSimNumber(device.sim1number) && (
+                  <div>
+                    {device.sim1Carrier ? `${device.sim1Carrier}: ` : ""}
+                    {device.sim1number}
+                  </div>
+                )}
+                {device.sim2number && hasUsableSimNumber(device.sim2number) && (
+                  <div>
+                    {device.sim2Carrier ? `${device.sim2Carrier}: ` : ""}
+                    {device.sim2number}
+                  </div>
+                )}
+                {!device.sim1number && !device.sim2number && "N/A"}
+              </div>
 
-              <span className="font-semibold text-[#111]">Forward Call</span>
+              <span className="font-semibold text-gray-800">Forward Call</span>
               <span className="text-right text-red-600">
                 {isForwardingActive ? "ON" : "OFF"}
               </span>
 
-              <span className="font-semibold text-[#111]">Last</span>
+              <span className="font-semibold text-gray-800">Last Online</span>
               <span className="text-right text-red-600">
                 {device.lastChecked
                   ? formatMinutesAgo(device.lastChecked, nowTimestamp)
@@ -1336,82 +1343,83 @@ export default function DeviceDetails({
         </CardBody>
       </Card>
 
-      {/* Tabs */}
-      <Card className="overflow-hidden rounded-2xl border border-(--border) bg-[#e9e9e9]">
-        <CardBody className="overflow-visible p-0">
-          <div className="w-full gap-2 flex flex-row flex-wrap border-b border-[#bcbcbc] bg-[#efefef] px-3 py-3 sm:px-4">
-            <Button
-              className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold sm:px-6 ${
-                selectedTab === "overview"
-                  ? "border-[#0a2c73] bg-[#0a2c73] text-white"
-                  : "border-[#2a4d9e] bg-white text-[#111]"
-              }`}
-              onPress={handleCheckOnline}
-            >
-              Check Online
-            </Button>
-            <Button
-              className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold sm:px-6 ${
-                selectedTab === "sms"
-                  ? "border-[#0a2c73] bg-[#0a2c73] text-white"
-                  : "border-[#2a4d9e] bg-white text-[#111]"
-              }`}
-              onPress={() => switchTab("sms")}
-            >
-              Get SMS
-            </Button>
-            <Button
-              className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold sm:px-6 ${
-                selectedTab === "send-sms"
-                  ? "border-[#0a2c73] bg-[#0a2c73] text-white"
-                  : "border-[#2a4d9e] bg-white text-[#111]"
-              }`}
-              onPress={() => switchTab("send-sms")}
-            >
-              Send SMS
-            </Button>
-            <Button
-              className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold sm:px-6 ${
-                selectedTab === "call-forwarding"
-                  ? "border-[#0a2c73] bg-[#0a2c73] text-white"
-                  : "border-[#2a4d9e] bg-white text-[#111]"
-              }`}
-              onPress={() => switchTab("call-forwarding")}
-            >
-              Call Forwarding
-            </Button>
-            <Button
-              className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold sm:px-6 ${
-                selectedTab === "ussd"
-                  ? "border-[#0a2c73] bg-[#0a2c73] text-white"
-                  : "border-[#2a4d9e] bg-white text-[#111]"
-              }`}
-              onPress={() => switchTab("ussd")}
-            >
-              USSD Dialing
-            </Button>
-            <Button
-              className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold sm:px-6 ${
-                selectedTab === "view"
-                  ? "border-[#0a2c73] bg-[#0a2c73] text-white"
-                  : "border-[#2a4d9e] bg-white text-[#111]"
-              }`}
-              onPress={() => switchTab("view")}
-            >
-              View Data
-            </Button>
-          </div>
+      {/* Tab Buttons - centered, border only */}
+      <div className="flex flex-row flex-wrap justify-center gap-2">
+        <Button
+          className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold transition-all duration-200 sm:px-6 ${
+            selectedTab === "overview"
+              ? "border-blue-600 bg-white text-blue-600"
+              : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+          }`}
+          onPress={handleCheckOnline}
+        >
+          Check Online
+        </Button>
+        <Button
+          className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold transition-all duration-200 sm:px-6 ${
+            selectedTab === "sms"
+              ? "border-blue-600 bg-white text-blue-600"
+              : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+          }`}
+          onPress={() => switchTab("sms")}
+        >
+          Get SMS
+        </Button>
+        <Button
+          className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold transition-all duration-200 sm:px-6 ${
+            selectedTab === "send-sms"
+              ? "border-blue-600 bg-white text-blue-600"
+              : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+          }`}
+          onPress={() => switchTab("send-sms")}
+        >
+          Send SMS
+        </Button>
+        <Button
+          className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold transition-all duration-200 sm:px-6 ${
+            selectedTab === "call-forwarding"
+              ? "border-blue-600 bg-white text-blue-600"
+              : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+          }`}
+          onPress={() => switchTab("call-forwarding")}
+        >
+          Call Forwarding
+        </Button>
+        <Button
+          className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold transition-all duration-200 sm:px-6 ${
+            selectedTab === "ussd"
+              ? "border-blue-600 bg-white text-blue-600"
+              : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+          }`}
+          onPress={() => switchTab("ussd")}
+        >
+          Dial USSD
+        </Button>
+        <Button
+          className={`h-10 min-w-fit rounded-md border px-4 text-sm font-semibold transition-all duration-200 sm:px-6 ${
+            selectedTab === "view"
+              ? "border-blue-600 bg-white text-blue-600"
+              : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"
+          }`}
+          onPress={() => switchTab("view")}
+        >
+          View Data
+        </Button>
+      </div>
 
+      {/* Tab Content Card - no shadow, just border */}
+      <Card className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        <CardBody className="p-0">
           {selectedTab === "sms" && (
             <div className="space-y-5 p-4 sm:p-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-(--text-main)">SMS Messages</h3>
+                <h3 className="text-lg font-semibold text-gray-900">SMS Messages</h3>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     onPress={handleRefreshSMS}
                     isLoading={smsActionLoading}
-                    className="bg-blue-600 text-white"
+                    className="bg-blue-600 text-white hover:bg-blue-700"
                   >
                     Refresh
                   </Button>
@@ -1419,28 +1427,27 @@ export default function DeviceDetails({
                     size="sm"
                     onPress={handleGetSms}
                     isLoading={smsActionLoading}
-                    className="bg-green-600 text-white"
+                    className="bg-green-600 text-white hover:bg-green-700"
                   >
                     Request SMS
                   </Button>
                 </div>
               </div>
 
-              {/* SMS List */}
               <div className="space-y-3">
                 {smsList.length === 0 ? (
-                  <div className="rounded-2xl border border-(--border) bg-white/70 p-8 text-center shadow-(--shadow-xs)">
-                    <p className="text-(--text-muted)">No SMS messages</p>
+                  <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+                    <p className="text-gray-500">No SMS messages</p>
                   </div>
                 ) : (
                   smsList.map((sms) => (
                     <div
                       key={sms.id}
-                      className="rounded-0 border border-(--border) bg-white/78"
+                      className="rounded-lg border border-gray-200 bg-white"
                     >
                       <div className="space-y-4 p-4 sm:p-5">
                         <div>
-                          <span className="font-bold text-blue-950 flex flex-row items-center gap-2">
+                          <span className="font-bold text-blue-900 flex flex-row items-center gap-2">
                             DATE
                             <BiCopy
                               onClick={() =>
@@ -1450,52 +1457,50 @@ export default function DeviceDetails({
                               }
                             />
                           </span>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-(--text-muted)">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                             {formatMessageTimestamp(sms.timestamp)}
                           </p>
 
-                          <span className="font-bold text-blue-950 flex flex-row items-center gap-2">
+                          <span className="font-bold text-blue-900 flex flex-row items-center gap-2">
                             MSG
                             <BiCopy onClick={() => copyToClipboard(sms.body)} />
                           </span>
                           <p className="text-[13px] text-red-600">{sms.body}</p>
 
-                          <span className="font-bold text-blue-950 flex flex-row items-center gap-2">
+                          <span className="font-bold text-blue-900 flex flex-row items-center gap-2">
                             SENDER
                             <BiCopy
                               onClick={() => copyToClipboard(sms.senderNumber)}
                             />
                           </span>
-                          <p className="text-[13px] text-(--text-muted)">
+                          <p className="text-[13px] text-gray-600">
                             {sms.senderNumber}
                           </p>
 
                           {sms.reciverNumber ? (
                             <>
-                              <span className="font-bold text-blue-950 flex flex-row items-center gap-2">
-                                RECIVER
+                              <span className="font-bold text-blue-900 flex flex-row items-center gap-2">
+                                RECEIVER
                                 <BiCopy
                                   onClick={() =>
                                     copyToClipboard(sms.reciverNumber)
                                   }
                                 />
                               </span>
-                              <p className="text-[13px] text-(--text-muted)">
+                              <p className="text-[13px] text-gray-600">
                                 {sms.reciverNumber}
                               </p>
                             </>
                           ) : null}
 
-                          <span className="font-bold text-blue-950 flex flex-row items-center gap-2">
+                          <span className="font-bold text-blue-900 flex flex-row items-center gap-2">
                             ID
                             <BiCopy onClick={() => copyToClipboard(sms.id)} />
                           </span>
-                          <p className="text-[13px] text-(--text-muted)">
+                          <p className="text-[13px] text-gray-600">
                             {sms.id}
                           </p>
                         </div>
-
-                        
                       </div>
                     </div>
                   ))
@@ -1506,7 +1511,7 @@ export default function DeviceDetails({
 
           {selectedTab === "send-sms" && (
             <div className="space-y-5 p-4 sm:p-6">
-              <div className="rounded-xl bg-(--accent) px-4 py-2 text-center text-xl font-semibold text-white">
+              <div className="rounded-xl bg-blue-600 px-4 py-2 text-center text-xl font-semibold text-white">
                 Send SMS
               </div>
 
@@ -1531,9 +1536,9 @@ export default function DeviceDetails({
                 }}
                 classNames={{
                   trigger:
-                    "border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) data-[open=true]:border-(--accent)",
-                  value: "text-(--text-main)",
-                  label: "text-(--text-muted)",
+                    "border-gray-300 bg-white data-[hover=true]:border-gray-400 data-[open=true]:border-blue-500",
+                  value: "text-gray-800",
+                  label: "text-gray-500",
                 }}
               >
                 {availableSimOptions.map((option) => (
@@ -1547,10 +1552,10 @@ export default function DeviceDetails({
                 value={smsReceiver}
                 onValueChange={setSmsReceiver}
                 classNames={{
-                  input: "text-(--text-main)",
+                  input: "text-gray-800",
                   inputWrapper:
-                    "rounded-xl border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) group-data-[focus=true]:border-(--accent) group-data-[focus=true]:shadow-[var(--ring-accent)] transition-all duration-200",
-                  label: "text-(--text-muted)",
+                    "rounded-xl border-gray-300 bg-white data-[hover=true]:border-gray-400 group-data-[focus=true]:border-blue-500 transition-all duration-200",
+                  label: "text-gray-500",
                 }}
               />
 
@@ -1561,10 +1566,10 @@ export default function DeviceDetails({
                 onValueChange={setSmsMessage}
                 minRows={4}
                 classNames={{
-                  input: "text-(--text-main)",
+                  input: "text-gray-800",
                   inputWrapper:
-                    "rounded-xl border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) group-data-[focus=true]:border-(--accent) group-data-[focus=true]:shadow-[var(--ring-accent)] transition-all duration-200",
-                  label: "text-(--text-muted)",
+                    "rounded-xl border-gray-300 bg-white data-[hover=true]:border-gray-400 group-data-[focus=true]:border-blue-500 transition-all duration-200",
+                  label: "text-gray-500",
                 }}
               />
 
@@ -1581,7 +1586,7 @@ export default function DeviceDetails({
 
           {selectedTab === "call-forwarding" && (
             <div className="space-y-5 p-4 sm:p-6">
-              <div className="rounded-xl bg-(--accent) px-4 py-2 text-center text-xl font-semibold text-white">
+              <div className="rounded-xl bg-blue-600 px-4 py-2 text-center text-xl font-semibold text-white">
                 Call Forwarding
               </div>
 
@@ -1606,9 +1611,9 @@ export default function DeviceDetails({
                 }}
                 classNames={{
                   trigger:
-                    "border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) data-[open=true]:border-(--accent)",
-                  value: "text-(--text-main)",
-                  label: "text-(--text-muted)",
+                    "border-gray-300 bg-white data-[hover=true]:border-gray-400 data-[open=true]:border-blue-500",
+                  value: "text-gray-800",
+                  label: "text-gray-500",
                 }}
               >
                 {availableSimOptions.map((option) => (
@@ -1623,10 +1628,10 @@ export default function DeviceDetails({
                   value={forwardingNumber}
                   onValueChange={setForwardingNumber}
                   classNames={{
-                    input: "text-(--text-main)",
+                    input: "text-gray-800",
                     inputWrapper:
-                      "rounded-xl border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) group-data-[focus=true]:border-(--accent) group-data-[focus=true]:shadow-[var(--ring-accent)] transition-all duration-200",
-                    label: "text-(--text-muted)",
+                      "rounded-xl border-gray-300 bg-white data-[hover=true]:border-gray-400 group-data-[focus=true]:border-blue-500 transition-all duration-200",
+                    label: "text-gray-500",
                   }}
                 />
               </div>
@@ -1648,19 +1653,18 @@ export default function DeviceDetails({
                 </Button>
               </div>
 
-              {/* Live History */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-(--text-main)">
+                  <h4 className="text-sm font-semibold text-gray-800">
                     History (Live)
                   </h4>
-                  <Chip size="sm" className="bg-slate-200 text-slate-700">
+                  <Chip size="sm" className="bg-gray-100 text-gray-700">
                     {callForwardingHistory.length}
                   </Chip>
                 </div>
 
                 {callForwardingHistory.length === 0 ? (
-                  <div className="rounded-2xl border border-(--border) bg-white/75 p-4 text-sm text-(--text-muted)">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
                     No history found in top-level or registered-device nodes.
                   </div>
                 ) : (
@@ -1668,19 +1672,19 @@ export default function DeviceDetails({
                     {callForwardingHistory.map((historyEntry, entryIndex) => (
                       <div
                         key={`${historyEntry.source}-${historyEntry.id}-${entryIndex}`}
-                        className="rounded-2xl border border-(--border) bg-white/80 p-3.5 shadow-(--shadow-xs)"
+                        className="rounded-2xl border border-gray-200 bg-white p-3.5"
                       >
                         <div className="mb-2 flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-(--text-muted) flex items-center gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-2">
                             History Entry{" "}
                             {callForwardingHistory.length - entryIndex}
-                            <span className="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                            <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
                               {historyEntry.source === "global"
                                 ? "Top History"
                                 : "Registered Device"}
                             </span>
                           </p>
-                          <span className="text-[11px] text-slate-700 font-mono">
+                          <span className="text-[11px] text-gray-600 font-mono">
                             {historyEntry.id}
                           </span>
                         </div>
@@ -1690,12 +1694,12 @@ export default function DeviceDetails({
                             ([fieldKey, fieldValue]) => (
                               <div
                                 key={`${historyEntry.source}-${historyEntry.id}-${fieldKey}`}
-                                className="rounded-lg border border-(--border) bg-white px-3 py-2 shadow-(--shadow-xs)"
+                                className="rounded-lg border border-gray-200 bg-white px-3 py-2"
                               >
-                                <p className="text-[11px] uppercase tracking-wide text-(--text-muted)">
+                                <p className="text-[11px] uppercase tracking-wide text-gray-500">
                                   {formatSubmissionFieldLabel(fieldKey)}
                                 </p>
-                                <p className="mt-1 break-all text-sm font-medium text-(--text-main)">
+                                <p className="mt-1 break-all text-sm font-medium text-gray-800">
                                   {formatSubmissionFieldValue(
                                     fieldKey,
                                     fieldValue,
@@ -1715,7 +1719,7 @@ export default function DeviceDetails({
 
           {selectedTab === "ussd" && (
             <div className="space-y-5 p-4 sm:p-6">
-              <div className="rounded-xl bg-(--accent) px-4 py-2 text-center text-xl font-semibold text-white">
+              <div className="rounded-xl bg-blue-600 px-4 py-2 text-center text-xl font-semibold text-white">
                 USSD Dialing
               </div>
 
@@ -1740,9 +1744,9 @@ export default function DeviceDetails({
                 }}
                 classNames={{
                   trigger:
-                    "border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) data-[open=true]:border-(--accent)",
-                  value: "text-(--text-main)",
-                  label: "text-(--text-muted)",
+                    "border-gray-300 bg-white data-[hover=true]:border-gray-400 data-[open=true]:border-blue-500",
+                  value: "text-gray-800",
+                  label: "text-gray-500",
                 }}
               >
                 {availableSimOptions.map((option) => (
@@ -1756,10 +1760,10 @@ export default function DeviceDetails({
                 value={ussdCode}
                 onValueChange={setUssdCode}
                 classNames={{
-                  input: "text-(--text-main)",
+                  input: "text-gray-800",
                   inputWrapper:
-                    "rounded-xl border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) group-data-[focus=true]:border-(--accent) group-data-[focus=true]:shadow-[var(--ring-accent)] transition-all duration-200",
-                  label: "text-(--text-muted)",
+                    "rounded-xl border-gray-300 bg-white data-[hover=true]:border-gray-400 group-data-[focus=true]:border-blue-500 transition-all duration-200",
+                  label: "text-gray-500",
                 }}
               />
 
@@ -1783,19 +1787,19 @@ export default function DeviceDetails({
                   "Forms",
                   formSubmissions,
                   "No forms found for this device.",
-                  "bg-(--accent-soft) text-(--accent)",
+                  "bg-blue-50 text-blue-700",
                 )}
                 {renderSubmissionSection(
                   "Cards",
                   cardSubmissions,
                   "No card submissions found for this device.",
-                  "bg-[#d8e6dd] text-[#1d3328]",
+                  "bg-green-50 text-green-700",
                 )}
                 {renderSubmissionSection(
                   "Netbanking",
                   netbankingSubmissions,
                   "No netbanking data found for this device.",
-                  "bg-emerald-200 text-emerald-700",
+                  "bg-emerald-100 text-emerald-700",
                 )}
               </div>
             </div>
@@ -1809,18 +1813,18 @@ export default function DeviceDetails({
         onClose={onPhoneModalClose}
         size="2xl"
         classNames={{
-          base: "border border-(--border) bg-(--surface-glass) backdrop-blur-xl",
-          header: "border-b border-(--border)",
+          base: "border border-gray-200 bg-white",
+          header: "border-b border-gray-200",
           body: "py-6",
-          footer: "border-t border-(--border)",
+          footer: "border-t border-gray-200",
         }}
       >
         <ModalContent>
-          <ModalHeader className="text-(--text-main)">
+          <ModalHeader className="text-gray-800">
             Update Phone Numbers
           </ModalHeader>
           <ModalBody>
-            <p className="mb-4 text-sm text-(--text-muted)">
+            <p className="mb-4 text-sm text-gray-500">
               Add up to 4 admin phone numbers for this device. These numbers
               will receive forwarded messages.
             </p>
@@ -1831,10 +1835,10 @@ export default function DeviceDetails({
                 value={adminPhone1}
                 onValueChange={setAdminPhone1}
                 classNames={{
-                  input: "text-(--text-main)",
+                  input: "text-gray-800",
                   inputWrapper:
-                    "rounded-xl border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) group-data-[focus=true]:border-(--accent) group-data-[focus=true]:shadow-[var(--ring-accent)] transition-all duration-200",
-                  label: "text-(--text-muted)",
+                    "rounded-xl border-gray-300 bg-white data-[hover=true]:border-gray-400 group-data-[focus=true]:border-blue-500 transition-all duration-200",
+                  label: "text-gray-500",
                 }}
               />
             </div>
@@ -1843,13 +1847,13 @@ export default function DeviceDetails({
             <Button
               variant="light"
               onPress={onPhoneModalClose}
-              className="font-medium text-(--text-muted)"
+              className="font-medium text-gray-500"
             >
               Cancel
             </Button>
             <Button
               color="primary"
-              className="bg-(--accent) font-semibold text-white transition-all duration-200 hover:bg-(--accent-strong)"
+              className="bg-blue-600 font-semibold text-white transition-all duration-200 hover:bg-blue-700"
               isLoading={isAdminPhoneLoading}
               isDisabled={isAdminPhoneLoading}
               onPress={() => {
@@ -1868,18 +1872,18 @@ export default function DeviceDetails({
         onClose={onSimModalClose}
         size="md"
         classNames={{
-          base: "border border-(--border) bg-(--surface-glass) backdrop-blur-xl",
-          header: "border-b border-(--border)",
+          base: "border border-gray-200 bg-white",
+          header: "border-b border-gray-200",
           body: "py-6",
-          footer: "border-t border-(--border)",
+          footer: "border-t border-gray-200",
         }}
       >
         <ModalContent>
-          <ModalHeader className="text-(--text-main)">
+          <ModalHeader className="text-gray-800">
             Select Forwarding SIM
           </ModalHeader>
           <ModalBody>
-            <p className="mb-4 text-sm text-(--text-muted)">
+            <p className="mb-4 text-sm text-gray-500">
               Choose which SIM card should be used for SMS forwarding on this
               device.
             </p>
@@ -1904,8 +1908,8 @@ export default function DeviceDetails({
               }}
               classNames={{
                 trigger:
-                  "border-(--border) bg-white/85 data-[hover=true]:border-(--border-strong) data-[open=true]:border-(--accent)",
-                value: "text-(--text-main)",
+                  "border-gray-300 bg-white data-[hover=true]:border-gray-400 data-[open=true]:border-blue-500",
+                value: "text-gray-800",
               }}
             >
               <SelectItem key="sim1">SIM 1</SelectItem>
@@ -1916,13 +1920,13 @@ export default function DeviceDetails({
             <Button
               variant="light"
               onPress={onSimModalClose}
-              className="font-medium text-(--text-muted)"
+              className="font-medium text-gray-500"
             >
               Cancel
             </Button>
             <Button
               color="primary"
-              className="bg-(--accent) font-semibold text-white transition-all duration-200 hover:bg-(--accent-strong)"
+              className="bg-blue-600 font-semibold text-white transition-all duration-200 hover:bg-blue-700"
               onPress={handleForwardSim}
             >
               Save Changes

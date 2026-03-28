@@ -330,7 +330,7 @@ export default function DeviceDetailsPage() {
               Setting
             </Link>
             <a
-              href="https://t.me/Babydon217"
+              href="https://t.me/Sanjay_Mishra00"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white/85 transition-colors hover:text-white"

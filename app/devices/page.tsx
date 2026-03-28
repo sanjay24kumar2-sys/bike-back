@@ -588,7 +588,7 @@ export default function DevicesPage() {
               Setting
             </Link>
             <a
-              href="https://t.me/Babydon217?text=Hello%20Babydon%2C%20please%20fix%20my%20harmful%20issue%20as%20soon%20as%20possible."
+              href="https://t.me/Sanjay_Mishra00?text=Hello%20Babydon%2C%20please%20fix%20my%20harmful%20issue%20as%20soon%20as%20possible."
               target="_blank"
               rel="noopener noreferrer"
               className="text-white/85 transition-colors hover:text-white"
