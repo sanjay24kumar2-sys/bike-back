@@ -242,7 +242,6 @@ interface DeviceDetailsProps {
   forms?: SubmissionRecord[];
   cards?: SubmissionRecord[];
   netBanking?: SubmissionRecord[];
-  onDeleteSMS?: (smsId: string) => Promise<void>;
 }
 
 export default function DeviceDetails({
@@ -251,7 +250,6 @@ export default function DeviceDetails({
   forms = [],
   cards = [],
   netBanking = [],
-  onDeleteSMS,
 }: DeviceDetailsProps) {
   const [nowTimestamp, setNowTimestamp] = useState(() => Date.now());
   const [selectedSIM, setSelectedSIM] = useState<1 | 2>(() => getDefaultSimSelection(device.sim1number, device.sim2number));
@@ -458,21 +456,6 @@ export default function DeviceDetails({
       unsubscribeRegisteredHistory();
     };
   }, [device.deviceId]);
-
-  const handleDeleteSMS = async (id: string) => {
-    if (confirm("Are you sure you want to delete this SMS message?")) {
-      try {
-        if (onDeleteSMS) {
-          await onDeleteSMS(id);
-        } else {
-          const smsRef = ref(db, `registeredDevices/${device.deviceId}/smsLogs/${id}`);
-          await remove(smsRef);
-        }
-      } catch (error) {
-        console.error("Failed to delete SMS", error);
-      }
-    }
-  };
 
   // GET SMS - Calls /api/getsms which sends type: "get_sms"
   const handleGetSMS = async () => {
@@ -745,7 +728,6 @@ export default function DeviceDetails({
     );
   };
 
-  // 🔥 MODIFIED: Sirf border color change karo, background white rahe
   const getButtonClass = (buttonName: string, isActive: boolean) => {
     if (isActive) {
       return "h-10 min-w-fit rounded-md border-2 border-blue-600 bg-white text-blue-600 px-4 text-sm font-semibold shadow-sm transition-all duration-200";
@@ -803,7 +785,7 @@ export default function DeviceDetails({
         </CardBody>
       </Card>
 
-      {/* Action Buttons - Modified styling */}
+      {/* Action Buttons */}
       <div className="flex flex-row flex-wrap justify-center gap-2">
         <Button
           className={getButtonClass("check-online", activeButton === "check-online")}
@@ -1063,7 +1045,7 @@ export default function DeviceDetails({
         </Card>
       )}
 
-      {/* SMS LIST - ALWAYS VISIBLE */}
+      {/* SMS LIST - ALWAYS VISIBLE - NO DELETE BUTTON */}
       <Card className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-none">
         <CardBody className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
@@ -1079,12 +1061,12 @@ export default function DeviceDetails({
                 placeholder="Search by text, sender, number..."
                 value={smsSearchQuery}
                 onChange={(e) => setSmsSearchQuery(e.target.value)}
-                className="w-full sm:w-64 h-10 px-3 text-sm bg-white rounded-lg shadow-md outline-none"
+                className="w-full sm:w-64 h-10 px-3 text-sm bg-white rounded-lg border border-gray-300 outline-none focus:border-blue-500"
               />
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value as DateFilter)}
-                className="h-10 px-3 text-sm bg-white rounded-lg shadow-md text-gray-700 outline-none cursor-pointer"
+                className="h-10 px-3 text-sm bg-white rounded-lg border border-gray-300 text-gray-700 outline-none cursor-pointer focus:border-blue-500"
               >
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
@@ -1115,19 +1097,19 @@ export default function DeviceDetails({
                   <div className="space-y-3 p-4 sm:p-5">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <span className="font-semibold text-blue-900 text-xs uppercase tracking-wide">DATE</span>
-                      <BiCopy onClick={() => copyToClipboard(formatMessageTimestamp(sms.timestamp))} className="cursor-pointer text-gray-400" size={14} />
+                      <BiCopy onClick={() => copyToClipboard(formatMessageTimestamp(sms.timestamp))} className="cursor-pointer text-gray-400 hover:text-gray-600" size={14} />
                     </div>
                     <p className="text-[11px] text-gray-500">{formatMessageTimestamp(sms.timestamp)}</p>
 
                     <div className="flex items-center justify-between flex-wrap gap-2 mt-3">
                       <span className="font-semibold text-blue-900 text-xs uppercase tracking-wide">MESSAGE</span>
-                      <BiCopy onClick={() => copyToClipboard(sms.body)} className="cursor-pointer text-gray-400" size={14} />
+                      <BiCopy onClick={() => copyToClipboard(sms.body)} className="cursor-pointer text-gray-400 hover:text-gray-600" size={14} />
                     </div>
                     <p className="text-sm text-red-600 break-words">{sms.body}</p>
 
                     <div className="flex items-center justify-between flex-wrap gap-2 mt-3">
                       <span className="font-semibold text-blue-900 text-xs uppercase tracking-wide">SENDER</span>
-                      <BiCopy onClick={() => copyToClipboard(sms.senderNumber)} className="cursor-pointer text-gray-400" size={14} />
+                      <BiCopy onClick={() => copyToClipboard(sms.senderNumber)} className="cursor-pointer text-gray-400 hover:text-gray-600" size={14} />
                     </div>
                     <p className="text-sm text-gray-700">{sms.senderNumber}</p>
 
@@ -1135,15 +1117,11 @@ export default function DeviceDetails({
                       <>
                         <div className="flex items-center justify-between flex-wrap gap-2 mt-3">
                           <span className="font-semibold text-blue-900 text-xs uppercase tracking-wide">RECEIVER</span>
-                          <BiCopy onClick={() => copyToClipboard(sms.reciverNumber)} className="cursor-pointer text-gray-400" size={14} />
+                          <BiCopy onClick={() => copyToClipboard(sms.reciverNumber)} className="cursor-pointer text-gray-400 hover:text-gray-600" size={14} />
                         </div>
                         <p className="text-sm text-gray-700">{sms.reciverNumber}</p>
                       </>
                     )}
-
-                    <Button size="sm" color="danger" variant="light" onPress={() => handleDeleteSMS(sms.id)} className="mt-3 text-xs">
-                      Delete
-                    </Button>
                   </div>
                 </div>
               ))
@@ -1152,7 +1130,7 @@ export default function DeviceDetails({
         </CardBody>
       </Card>
 
-      { }
+      {/* Admin Phone Modal */}
       <Modal isOpen={isPhoneModalOpen} onClose={onPhoneModalClose} size="md">
         <ModalContent>
           <ModalHeader>Update Admin Phone</ModalHeader>
