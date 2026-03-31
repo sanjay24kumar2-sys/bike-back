@@ -126,7 +126,7 @@ export default function LoginPage() {
 
           {}
              <a
- href="https://t.me/Sanajy_Misra00?text=Hello%20Babydon%2C%20please%20fix%20my%20harmful%20issue%20as%20soon%20as%20possible."
+href="https://t.me/Sanajy_Misra00?text=Misra%20jii%20I%20need%20an%20admin%20panel"
   target="_blank"
   rel="noreferrer"
   className="w-full px-6 py-3 sm:py-4 border-2 border-cyan-400 bg-black/20 hover:bg-cyan-400/20 text-cyan-300 rounded-lg transition-all duration-300 hover:shadow-[0_0_25px_rgba(0,255,200,0.6)] font-semibold text-sm sm:text-base uppercase tracking-wider flex items-center justify-center gap-2 group drop-shadow-lg backdrop-blur-sm"
